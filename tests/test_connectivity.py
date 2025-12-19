@@ -1,17 +1,18 @@
 """Tests for connectivity tools."""
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from network_mcp.tools.connectivity import (
-    ping,
-    traceroute,
-    dns_lookup,
-    port_check,
-    mtr,
+    batch_dns_lookup,
     batch_ping,
     batch_port_check,
-    batch_dns_lookup,
+    dns_lookup,
+    mtr,
+    ping,
+    port_check,
+    traceroute,
 )
 
 

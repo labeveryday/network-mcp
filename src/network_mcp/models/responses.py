@@ -6,7 +6,6 @@ plus structured data for programmatic use.
 
 from pydantic import BaseModel, Field
 
-
 # =============================================================================
 # Common Models
 # =============================================================================
@@ -16,9 +15,13 @@ class ErrorResponse(BaseModel):
     """Structured error response."""
 
     success: bool = False
-    error_type: str = Field(description="Type of error (e.g., 'timeout', 'unreachable', 'invalid_input')")
+    error_type: str = Field(
+        description="Type of error (e.g., 'timeout', 'unreachable', 'invalid_input')"
+    )
     message: str = Field(description="Human-readable error message")
-    suggestion: str | None = Field(default=None, description="Suggested action to resolve the error")
+    suggestion: str | None = Field(
+        default=None, description="Suggested action to resolve the error"
+    )
 
 
 # =============================================================================
@@ -31,14 +34,24 @@ class PingResult(BaseModel):
 
     success: bool = Field(description="Whether ping was successful (at least one reply received)")
     target: str = Field(description="Target hostname or IP address")
-    resolved_ip: str | None = Field(default=None, description="Resolved IP address if target was hostname")
+    resolved_ip: str | None = Field(
+        default=None, description="Resolved IP address if target was hostname"
+    )
     packets_sent: int = Field(description="Number of ICMP packets sent")
     packets_received: int = Field(description="Number of ICMP replies received")
     packet_loss_percent: float = Field(description="Percentage of packets lost (0-100)")
-    min_latency_ms: float | None = Field(default=None, description="Minimum round-trip time in milliseconds")
-    avg_latency_ms: float | None = Field(default=None, description="Average round-trip time in milliseconds")
-    max_latency_ms: float | None = Field(default=None, description="Maximum round-trip time in milliseconds")
-    stddev_latency_ms: float | None = Field(default=None, description="Standard deviation of RTT in milliseconds")
+    min_latency_ms: float | None = Field(
+        default=None, description="Minimum round-trip time in milliseconds"
+    )
+    avg_latency_ms: float | None = Field(
+        default=None, description="Average round-trip time in milliseconds"
+    )
+    max_latency_ms: float | None = Field(
+        default=None, description="Maximum round-trip time in milliseconds"
+    )
+    stddev_latency_ms: float | None = Field(
+        default=None, description="Standard deviation of RTT in milliseconds"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
 
 
@@ -46,12 +59,18 @@ class TracerouteHop(BaseModel):
     """A single hop in a traceroute."""
 
     hop_number: int = Field(description="Hop number (1-based)")
-    ip_address: str | None = Field(default=None, description="IP address of the hop (None if timeout)")
+    ip_address: str | None = Field(
+        default=None, description="IP address of the hop (None if timeout)"
+    )
     hostname: str | None = Field(default=None, description="Reverse DNS hostname if available")
-    latency_ms: list[float] = Field(default_factory=list, description="RTT measurements for this hop")
+    latency_ms: list[float] = Field(
+        default_factory=list, description="RTT measurements for this hop"
+    )
     avg_latency_ms: float | None = Field(default=None, description="Average latency for this hop")
     packet_loss: bool = Field(default=False, description="Whether any probes timed out at this hop")
-    is_destination: bool = Field(default=False, description="Whether this hop is the final destination")
+    is_destination: bool = Field(
+        default=False, description="Whether this hop is the final destination"
+    )
 
 
 class TracerouteResult(BaseModel):
@@ -59,11 +78,17 @@ class TracerouteResult(BaseModel):
 
     success: bool = Field(description="Whether traceroute completed successfully")
     target: str = Field(description="Target hostname or IP address")
-    resolved_ip: str | None = Field(default=None, description="Resolved IP address if target was hostname")
-    hops: list[TracerouteHop] = Field(default_factory=list, description="List of hops along the path")
+    resolved_ip: str | None = Field(
+        default=None, description="Resolved IP address if target was hostname"
+    )
+    hops: list[TracerouteHop] = Field(
+        default_factory=list, description="List of hops along the path"
+    )
     reached_destination: bool = Field(description="Whether the final destination was reached")
     total_hops: int = Field(description="Total number of hops to destination or max hops reached")
-    issues_detected: list[str] = Field(default_factory=list, description="Any issues detected (high latency hops, packet loss)")
+    issues_detected: list[str] = Field(
+        default_factory=list, description="Any issues detected (high latency hops, packet loss)"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
 
 
@@ -83,7 +108,9 @@ class DnsLookupResult(BaseModel):
     query: str = Field(description="The queried hostname or IP")
     query_type: str = Field(description="Type of query performed (forward or reverse)")
     records: list[DnsRecord] = Field(default_factory=list, description="DNS records found")
-    response_time_ms: float | None = Field(default=None, description="DNS response time in milliseconds")
+    response_time_ms: float | None = Field(
+        default=None, description="DNS response time in milliseconds"
+    )
     nameserver: str | None = Field(default=None, description="Nameserver used for query")
     summary: str = Field(description="Human-readable summary for the LLM")
 
@@ -95,9 +122,13 @@ class PortCheckResult(BaseModel):
     target: str = Field(description="Target hostname or IP address")
     port: int = Field(description="Port number checked")
     is_open: bool = Field(description="Whether the port is open and accepting connections")
-    response_time_ms: float | None = Field(default=None, description="Connection time in milliseconds")
+    response_time_ms: float | None = Field(
+        default=None, description="Connection time in milliseconds"
+    )
     banner: str | None = Field(default=None, description="Service banner if available")
-    service_hint: str | None = Field(default=None, description="Guessed service based on port/banner")
+    service_hint: str | None = Field(
+        default=None, description="Guessed service based on port/banner"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
 
 
@@ -121,15 +152,21 @@ class MtrResult(BaseModel):
 
     success: bool = Field(description="Whether MTR completed successfully")
     target: str = Field(description="Target hostname or IP address")
-    resolved_ip: str | None = Field(default=None, description="Resolved IP address if target was hostname")
+    resolved_ip: str | None = Field(
+        default=None, description="Resolved IP address if target was hostname"
+    )
     hops: list[MtrHop] = Field(default_factory=list, description="List of hops with statistics")
     report_cycles: int = Field(description="Number of report cycles (pings per hop)")
     reached_destination: bool = Field(description="Whether the final destination was reached")
-    issues_detected: list[str] = Field(default_factory=list, description="Issues detected (high loss, latency spikes)")
+    issues_detected: list[str] = Field(
+        default_factory=list, description="Issues detected (high loss, latency spikes)"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
     # Optional structured error metadata for automation (e.g., missing dependency, blocked by policy)
     error_type: str | None = Field(default=None, description="Machine-readable error type")
-    suggestion: str | None = Field(default=None, description="Suggested action to resolve the error")
+    suggestion: str | None = Field(
+        default=None, description="Suggested action to resolve the error"
+    )
     fallback: dict | None = Field(
         default=None,
         description="Optional fallback payload (e.g., traceroute/ping results) when MTR isn't available",
@@ -157,7 +194,9 @@ class CapabilitiesResult(BaseModel):
     server_version: str = Field(description="network-mcp version")
     platform: str = Field(description="Platform identifier (e.g., darwin/linux/windows)")
     python_version: str = Field(description="Python runtime version")
-    dependencies: list[DependencyStatus] = Field(default_factory=list, description="Dependency statuses")
+    dependencies: list[DependencyStatus] = Field(
+        default_factory=list, description="Dependency statuses"
+    )
     security: dict = Field(default_factory=dict, description="Active security policy summary")
     pcap: dict = Field(default_factory=dict, description="Active pcap policy summary")
     summary: str = Field(description="Human-readable summary for the LLM")
@@ -178,7 +217,9 @@ class RdapLookupResult(BaseModel):
     asn_hint: str | None = Field(default=None, description="Optional ASN hint if present in RDAP")
     summary: str = Field(description="Human-readable summary for the LLM")
     error_type: str | None = Field(default=None, description="Machine-readable error type")
-    suggestion: str | None = Field(default=None, description="Suggested action to resolve the error")
+    suggestion: str | None = Field(
+        default=None, description="Suggested action to resolve the error"
+    )
 
 
 class AsnLookupResult(BaseModel):
@@ -194,7 +235,9 @@ class AsnLookupResult(BaseModel):
     as_name: str | None = Field(default=None, description="ASN name/description")
     summary: str = Field(description="Human-readable summary for the LLM")
     error_type: str | None = Field(default=None, description="Machine-readable error type")
-    suggestion: str | None = Field(default=None, description="Suggested action to resolve the error")
+    suggestion: str | None = Field(
+        default=None, description="Suggested action to resolve the error"
+    )
 
 
 # =============================================================================
@@ -213,7 +256,9 @@ class Conversation(BaseModel):
     packets: int = Field(description="Number of packets in this conversation")
     bytes: int = Field(description="Total bytes transferred")
     start_time: float | None = Field(default=None, description="Start timestamp of conversation")
-    duration_seconds: float | None = Field(default=None, description="Duration of conversation in seconds")
+    duration_seconds: float | None = Field(
+        default=None, description="Duration of conversation in seconds"
+    )
 
 
 class ThroughputConversation(BaseModel):
@@ -229,7 +274,9 @@ class ThroughputConversation(BaseModel):
     packets_total: int = Field(description="Total packets in both directions")
     bytes_total: int = Field(description="Total bytes in both directions")
 
-    duration_seconds: float | None = Field(default=None, description="Conversation duration in seconds")
+    duration_seconds: float | None = Field(
+        default=None, description="Conversation duration in seconds"
+    )
     start_time: float | None = Field(default=None, description="Start timestamp")
     end_time: float | None = Field(default=None, description="End timestamp")
 
@@ -241,7 +288,9 @@ class ThroughputConversation(BaseModel):
 
     mbps_forward: float | None = Field(default=None, description="Observed Mbps (src -> dst)")
     mbps_reverse: float | None = Field(default=None, description="Observed Mbps (dst -> src)")
-    mbps_total: float | None = Field(default=None, description="Observed total Mbps (both directions)")
+    mbps_total: float | None = Field(
+        default=None, description="Observed total Mbps (both directions)"
+    )
 
     direction: str = Field(description="Dominant direction label, e.g. 'src:port -> dst:port'")
 
@@ -255,15 +304,22 @@ class AnalyzeThroughputResult(BaseModel):
     conversations_analyzed: int = Field(description="Number of conversations analyzed")
     top_n: int = Field(description="Number of conversations returned")
     sort_by: str = Field(description="Sort key used (mbps_total or bytes_total)")
-    conversations: list[ThroughputConversation] = Field(default_factory=list, description="Top conversations")
+    conversations: list[ThroughputConversation] = Field(
+        default_factory=list, description="Top conversations"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
+
 
 class TcpIssue(BaseModel):
     """A TCP issue detected in packet capture."""
 
-    issue_type: str = Field(description="Type of issue (retransmission, reset, zero_window, out_of_order, dup_ack)")
+    issue_type: str = Field(
+        description="Type of issue (retransmission, reset, zero_window, out_of_order, dup_ack)"
+    )
     count: int = Field(description="Number of occurrences")
-    affected_flows: list[str] = Field(default_factory=list, description="Flows affected (src:port -> dst:port)")
+    affected_flows: list[str] = Field(
+        default_factory=list, description="Flows affected (src:port -> dst:port)"
+    )
     severity: str = Field(description="Severity level (low, medium, high)")
     recommendation: str = Field(description="Recommendation to address the issue")
 
@@ -278,12 +334,20 @@ class PcapSummaryResult(BaseModel):
     start_time: str | None = Field(default=None, description="Capture start time")
     end_time: str | None = Field(default=None, description="Capture end time")
     file_size_bytes: int | None = Field(default=None, description="Size of pcap file")
-    protocols: dict[str, int] = Field(default_factory=dict, description="Protocol breakdown (protocol -> packet count)")
-    top_talkers: list[dict] = Field(default_factory=list, description="Top source IPs by packet count")
-    top_destinations: list[dict] = Field(default_factory=list, description="Top destination IPs by packet count")
+    protocols: dict[str, int] = Field(
+        default_factory=dict, description="Protocol breakdown (protocol -> packet count)"
+    )
+    top_talkers: list[dict] = Field(
+        default_factory=list, description="Top source IPs by packet count"
+    )
+    top_destinations: list[dict] = Field(
+        default_factory=list, description="Top destination IPs by packet count"
+    )
     unique_src_ips: int = Field(default=0, description="Number of unique source IPs")
     unique_dst_ips: int = Field(default=0, description="Number of unique destination IPs")
-    tcp_issues_summary: dict[str, int] | None = Field(default=None, description="Summary of TCP issues if present")
+    tcp_issues_summary: dict[str, int] | None = Field(
+        default=None, description="Summary of TCP issues if present"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
 
 
@@ -305,7 +369,9 @@ class DnsQuery(BaseModel):
     query_type: str = Field(description="Query type (A, AAAA, MX, etc.)")
     response_code: str | None = Field(default=None, description="Response code if response found")
     response_ips: list[str] = Field(default_factory=list, description="Response IP addresses")
-    response_time_ms: float | None = Field(default=None, description="Response time in milliseconds")
+    response_time_ms: float | None = Field(
+        default=None, description="Response time in milliseconds"
+    )
     client_ip: str | None = Field(default=None, description="Client that made the query")
 
 
@@ -318,8 +384,12 @@ class DnsAnalysisResult(BaseModel):
     total_queries: int = Field(description="Number of DNS queries")
     total_responses: int = Field(description="Number of DNS responses")
     unique_domains: int = Field(description="Number of unique domains queried")
-    top_queried_domains: list[dict] = Field(default_factory=list, description="Most frequently queried domains")
-    failed_queries: list[dict] = Field(default_factory=list, description="Queries that failed (NXDOMAIN, etc.)")
+    top_queried_domains: list[dict] = Field(
+        default_factory=list, description="Most frequently queried domains"
+    )
+    failed_queries: list[dict] = Field(
+        default_factory=list, description="Queries that failed (NXDOMAIN, etc.)"
+    )
     slow_queries: list[dict] = Field(default_factory=list, description="Queries with high latency")
     summary: str = Field(description="Human-readable summary for the LLM")
 
@@ -344,7 +414,9 @@ class FilterPacketsResult(BaseModel):
     filter_expression: str = Field(description="Filter expression used")
     total_packets_scanned: int = Field(description="Total packets scanned")
     matching_packets: int = Field(description="Number of packets matching filter")
-    packets: list[FilteredPacket] = Field(default_factory=list, description="Matching packets (limited)")
+    packets: list[FilteredPacket] = Field(
+        default_factory=list, description="Matching packets (limited)"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
 
 
@@ -356,7 +428,9 @@ class ProtocolHierarchyResult(BaseModel):
     total_packets: int = Field(description="Total packets analyzed")
     total_bytes: int = Field(description="Total bytes in capture")
     hierarchy: dict = Field(description="Protocol hierarchy tree with counts and percentages")
-    top_protocols: list[dict] = Field(default_factory=list, description="Top protocols by packet count")
+    top_protocols: list[dict] = Field(
+        default_factory=list, description="Top protocols by packet count"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
 
 
@@ -368,7 +442,9 @@ class CustomFilterResult(BaseModel):
     filter_expression: str = Field(description="The scapy filter expression used")
     total_packets_scanned: int = Field(description="Total packets scanned")
     matching_packets: int = Field(description="Number of packets matching filter")
-    packets: list[FilteredPacket] = Field(default_factory=list, description="Matching packets (limited)")
+    packets: list[FilteredPacket] = Field(
+        default_factory=list, description="Matching packets (limited)"
+    )
     error: str | None = Field(default=None, description="Error message if filter failed")
     summary: str = Field(description="Human-readable summary for the LLM")
 
@@ -466,8 +542,12 @@ class InterfacesResult(BaseModel):
     """Result from get_interfaces tool."""
 
     success: bool = Field(description="Whether operation completed successfully")
-    interfaces: list[NetworkInterface] = Field(default_factory=list, description="List of network interfaces")
-    default_interface: str | None = Field(default=None, description="Name of default/primary interface")
+    interfaces: list[NetworkInterface] = Field(
+        default_factory=list, description="List of network interfaces"
+    )
+    default_interface: str | None = Field(
+        default=None, description="Name of default/primary interface"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")
 
 
@@ -525,7 +605,9 @@ class Connection(BaseModel):
     local_port: int = Field(description="Local port")
     remote_address: str | None = Field(default=None, description="Remote address")
     remote_port: int | None = Field(default=None, description="Remote port")
-    state: str | None = Field(default=None, description="Connection state (e.g., ESTABLISHED, LISTEN)")
+    state: str | None = Field(
+        default=None, description="Connection state (e.g., ESTABLISHED, LISTEN)"
+    )
     pid: int | None = Field(default=None, description="Process ID")
     process_name: str | None = Field(default=None, description="Process name")
 
@@ -545,5 +627,7 @@ class PublicIpResult(BaseModel):
 
     success: bool = Field(description="Whether operation completed successfully")
     public_ip: str | None = Field(default=None, description="Public/external IP address")
-    service_used: str | None = Field(default=None, description="Service used to determine public IP")
+    service_used: str | None = Field(
+        default=None, description="Service used to determine public IP"
+    )
     summary: str = Field(description="Human-readable summary for the LLM")

@@ -12,9 +12,7 @@ Supports Linux, macOS, and Windows.
 
 import platform
 import re
-import socket
 import subprocess
-from typing import Callable
 
 from network_mcp.models.responses import (
     ArpEntry,
@@ -22,8 +20,8 @@ from network_mcp.models.responses import (
     Connection,
     ConnectionsResult,
     DnsConfigResult,
-    NetworkInterface,
     InterfacesResult,
+    NetworkInterface,
     PublicIpResult,
     Route,
     RoutesResult,
@@ -136,7 +134,9 @@ def _parse_macos_ifconfig(output: str) -> list[NetworkInterface]:
                 current_iface.mac_address = mac_match.group(1)
 
             # IPv4: "	inet 192.168.1.100 netmask 0xffffff00 broadcast 192.168.1.255"
-            ipv4_match = re.search(r"inet\s+([\d.]+)\s+netmask\s+(\S+)(?:\s+broadcast\s+([\d.]+))?", line)
+            ipv4_match = re.search(
+                r"inet\s+([\d.]+)\s+netmask\s+(\S+)(?:\s+broadcast\s+([\d.]+))?", line
+            )
             if ipv4_match:
                 current_iface.ipv4_addresses.append(ipv4_match.group(1))
                 # Convert hex netmask to dotted decimal
@@ -365,7 +365,9 @@ def _parse_macos_routes(output: str) -> tuple[list[Route], str | None]:
 
         route = Route(
             destination=dest,
-            gateway=gateway if gateway not in ("link#", "*") and not gateway.startswith("link#") else None,
+            gateway=gateway
+            if gateway not in ("link#", "*") and not gateway.startswith("link#")
+            else None,
             interface=interface,
             flags=flags,
         )
@@ -608,12 +610,14 @@ def _parse_linux_arp(output: str) -> list[ArpEntry]:
             elif part in ("REACHABLE", "STALE", "DELAY", "PROBE", "FAILED", "PERMANENT"):
                 state = part
 
-        entries.append(ArpEntry(
-            ip_address=ip_addr,
-            mac_address=mac_addr,
-            interface=interface,
-            state=state,
-        ))
+        entries.append(
+            ArpEntry(
+                ip_address=ip_addr,
+                mac_address=mac_addr,
+                interface=interface,
+                state=state,
+            )
+        )
 
     return entries
 
@@ -626,11 +630,13 @@ def _parse_macos_arp(output: str) -> list[ArpEntry]:
         # Format: hostname (192.168.1.1) at 00:11:22:33:44:55 on en0 ifscope [ethernet]
         match = re.search(r"\(([\d.]+)\)\s+at\s+([0-9a-f:]+)(?:\s+on\s+(\S+))?", line)
         if match:
-            entries.append(ArpEntry(
-                ip_address=match.group(1),
-                mac_address=match.group(2) if match.group(2) != "(incomplete)" else None,
-                interface=match.group(3),
-            ))
+            entries.append(
+                ArpEntry(
+                    ip_address=match.group(1),
+                    mac_address=match.group(2) if match.group(2) != "(incomplete)" else None,
+                    interface=match.group(3),
+                )
+            )
 
     return entries
 
@@ -658,12 +664,14 @@ def _parse_windows_arp(output: str) -> list[ArpEntry]:
             if re.match(r"^\d+\.\d+\.\d+\.\d+$", ip_addr):
                 mac_addr = parts[1].replace("-", ":").lower() if len(parts) > 1 else None
                 state = parts[2] if len(parts) > 2 else None
-                entries.append(ArpEntry(
-                    ip_address=ip_addr,
-                    mac_address=mac_addr if mac_addr != "ff:ff:ff:ff:ff:ff" else None,
-                    interface=current_interface,
-                    state=state,
-                ))
+                entries.append(
+                    ArpEntry(
+                        ip_address=ip_addr,
+                        mac_address=mac_addr if mac_addr != "ff:ff:ff:ff:ff:ff" else None,
+                        interface=current_interface,
+                        state=state,
+                    )
+                )
 
     return entries
 
@@ -743,7 +751,11 @@ def _parse_linux_ss(output: str) -> list[Connection]:
 
         try:
             proto = parts[0].upper()
-            state = parts[1] if parts[1] not in ("UNCONN", "ESTAB", "LISTEN", "TIME-WAIT", "CLOSE-WAIT") else parts[1]
+            state = (
+                parts[1]
+                if parts[1] not in ("UNCONN", "ESTAB", "LISTEN", "TIME-WAIT", "CLOSE-WAIT")
+                else parts[1]
+            )
 
             # Local address
             local = parts[4]
@@ -758,7 +770,9 @@ def _parse_linux_ss(output: str) -> list[Connection]:
             remote = parts[5] if len(parts) > 5 else "*:*"
             if ":" in remote:
                 remote_parts = remote.rsplit(":", 1)
-                remote_addr = remote_parts[0].strip("[]") if remote_parts[0] not in ("*", "0.0.0.0") else None
+                remote_addr = (
+                    remote_parts[0].strip("[]") if remote_parts[0] not in ("*", "0.0.0.0") else None
+                )
                 remote_port = int(remote_parts[1]) if remote_parts[1] not in ("*", "0") else None
             else:
                 remote_addr = None
@@ -772,21 +786,34 @@ def _parse_linux_ss(output: str) -> list[Connection]:
                     pid_match = re.search(r"pid=(\d+)", part)
                     if pid_match:
                         pid = int(pid_match.group(1))
-                if 'users:' in part or '"' in part:
+                if "users:" in part or '"' in part:
                     name_match = re.search(r'"([^"]+)"', part)
                     if name_match:
                         process_name = name_match.group(1)
 
-            connections.append(Connection(
-                protocol=proto,
-                local_address=local_addr,
-                local_port=local_port,
-                remote_address=remote_addr,
-                remote_port=remote_port,
-                state=state if state in ("LISTEN", "ESTAB", "ESTABLISHED", "TIME-WAIT", "CLOSE-WAIT", "SYN-SENT", "SYN-RECV") else None,
-                pid=pid,
-                process_name=process_name,
-            ))
+            connections.append(
+                Connection(
+                    protocol=proto,
+                    local_address=local_addr,
+                    local_port=local_port,
+                    remote_address=remote_addr,
+                    remote_port=remote_port,
+                    state=state
+                    if state
+                    in (
+                        "LISTEN",
+                        "ESTAB",
+                        "ESTABLISHED",
+                        "TIME-WAIT",
+                        "CLOSE-WAIT",
+                        "SYN-SENT",
+                        "SYN-RECV",
+                    )
+                    else None,
+                    pid=pid,
+                    process_name=process_name,
+                )
+            )
         except (ValueError, IndexError):
             continue
 
@@ -810,7 +837,13 @@ def _parse_netstat(output: str) -> list[Connection]:
 
         try:
             # Different formats for different systems
-            if len(parts) >= 6 and parts[5] in ("LISTEN", "ESTABLISHED", "TIME_WAIT", "CLOSE_WAIT", "SYN_SENT"):
+            if len(parts) >= 6 and parts[5] in (
+                "LISTEN",
+                "ESTABLISHED",
+                "TIME_WAIT",
+                "CLOSE_WAIT",
+                "SYN_SENT",
+            ):
                 # macOS/BSD format: Proto Recv-Q Send-Q Local Foreign State
                 local = parts[3]
                 remote = parts[4]
@@ -843,16 +876,22 @@ def _parse_netstat(output: str) -> list[Connection]:
                 else:
                     remote_parts = remote.rsplit(".", 1)
                 remote_addr = remote_parts[0] if remote_parts[0] not in ("*", "0.0.0.0") else None
-                remote_port = int(remote_parts[1]) if len(remote_parts) > 1 and remote_parts[1] not in ("*", "0") else None
+                remote_port = (
+                    int(remote_parts[1])
+                    if len(remote_parts) > 1 and remote_parts[1] not in ("*", "0")
+                    else None
+                )
 
-            connections.append(Connection(
-                protocol=proto,
-                local_address=local_addr,
-                local_port=local_port,
-                remote_address=remote_addr,
-                remote_port=remote_port,
-                state=state,
-            ))
+            connections.append(
+                Connection(
+                    protocol=proto,
+                    local_address=local_addr,
+                    local_port=local_port,
+                    remote_address=remote_addr,
+                    remote_port=remote_port,
+                    state=state,
+                )
+            )
         except (ValueError, IndexError):
             continue
 
@@ -928,9 +967,15 @@ def get_connections(
 
     # Count states
     listening = sum(1 for c in connections if c.state and "LISTEN" in c.state.upper())
-    established = sum(1 for c in connections if c.state and ("ESTAB" in c.state.upper() or c.state.upper() == "ESTABLISHED"))
+    established = sum(
+        1
+        for c in connections
+        if c.state and ("ESTAB" in c.state.upper() or c.state.upper() == "ESTABLISHED")
+    )
 
-    summary = f"Found {len(connections)} connections ({listening} listening, {established} established)"
+    summary = (
+        f"Found {len(connections)} connections ({listening} listening, {established} established)"
+    )
 
     return ConnectionsResult(
         success=True,
@@ -958,8 +1003,8 @@ def get_public_ip(timeout: int = 10) -> PublicIpResult:
     Returns:
         PublicIpResult with public IP address and service used
     """
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     # Services to try (in order of preference)
     services = [
@@ -971,10 +1016,7 @@ def get_public_ip(timeout: int = 10) -> PublicIpResult:
 
     for url, service_name in services:
         try:
-            request = urllib.request.Request(
-                url,
-                headers={"User-Agent": "network-mcp/1.0"}
-            )
+            request = urllib.request.Request(url, headers={"User-Agent": "network-mcp/1.0"})
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 public_ip = response.read().decode("utf-8").strip()
                 # Basic validation - should look like an IP

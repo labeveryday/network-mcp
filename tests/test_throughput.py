@@ -34,5 +34,3 @@ def test_analyze_throughput_basic_direction_and_duration():
         assert conv.bytes_total > 0
     finally:
         os.unlink(path)
-
-

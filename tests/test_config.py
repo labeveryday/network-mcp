@@ -4,19 +4,17 @@ import os
 import tempfile
 from pathlib import Path
 
-import pytest
 import yaml
 
 from network_mcp.config import (
     Config,
-    SecurityConfig,
     PcapConfig,
-    load_config,
-    get_config,
-    validate_target,
-    validate_scapy_filter,
+    SecurityConfig,
     _is_private_ip,
     _matches_pattern,
+    load_config,
+    validate_scapy_filter,
+    validate_target,
 )
 
 
@@ -237,6 +235,7 @@ class TestLoadConfig:
             os.environ["NETWORK_MCP_BLOCK_PRIVATE"] = "true"
             # Force reload
             import network_mcp.config as cfg
+
             cfg._config = None
             config = load_config()
             assert config.security.block_private is True

@@ -6,7 +6,6 @@ tools to call and what fallbacks to use.
 
 import platform
 import shutil
-import sys
 
 from network_mcp import __version__
 from network_mcp.config import get_config
@@ -56,5 +55,3 @@ def capabilities() -> CapabilitiesResult:
         pcap=pcap,
         summary=summary,
     )
-
-

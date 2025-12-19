@@ -196,5 +196,3 @@ def _is_ip(value: str) -> bool:
         return True
     except ValueError:
         return False
-
-

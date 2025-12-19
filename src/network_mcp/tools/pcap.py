@@ -184,14 +184,8 @@ def pcap_summary(
     file_size = os.path.getsize(file_path)
 
     # Top talkers
-    top_talkers = [
-        {"ip": ip, "packets": count}
-        for ip, count in src_ips.most_common(5)
-    ]
-    top_destinations = [
-        {"ip": ip, "packets": count}
-        for ip, count in dst_ips.most_common(5)
-    ]
+    top_talkers = [{"ip": ip, "packets": count} for ip, count in src_ips.most_common(5)]
+    top_destinations = [{"ip": ip, "packets": count} for ip, count in dst_ips.most_common(5)]
 
     # Build summary
     summary_parts = [f"Pcap contains {len(packets)} packets"]
@@ -204,7 +198,9 @@ def pcap_summary(
         summary_parts.append(f"Top protocols: {proto_str}")
 
     if top_talkers:
-        summary_parts.append(f"Top source: {top_talkers[0]['ip']} ({top_talkers[0]['packets']} pkts)")
+        summary_parts.append(
+            f"Top source: {top_talkers[0]['ip']} ({top_talkers[0]['packets']} pkts)"
+        )
 
     if tcp_issues:
         issue_str = ", ".join(f"{k}: {v}" for k, v in tcp_issues.items())
@@ -256,12 +252,14 @@ def get_conversations(
         return []
 
     # Track conversations
-    convos = defaultdict(lambda: {
-        "packets": 0,
-        "bytes": 0,
-        "start_time": None,
-        "end_time": None,
-    })
+    convos = defaultdict(
+        lambda: {
+            "packets": 0,
+            "bytes": 0,
+            "start_time": None,
+            "end_time": None,
+        }
+    )
 
     for pkt in packets:
         if IP not in pkt:
@@ -313,17 +311,19 @@ def get_conversations(
         if stats["start_time"] and stats["end_time"]:
             duration = stats["end_time"] - stats["start_time"]
 
-        result.append(Conversation(
-            src_ip=ep1[0],
-            src_port=ep1[1] if ep1[1] != 0 else None,
-            dst_ip=ep2[0],
-            dst_port=ep2[1] if ep2[1] != 0 else None,
-            protocol=proto,
-            packets=stats["packets"],
-            bytes=stats["bytes"],
-            start_time=stats["start_time"],
-            duration_seconds=duration,
-        ))
+        result.append(
+            Conversation(
+                src_ip=ep1[0],
+                src_port=ep1[1] if ep1[1] != 0 else None,
+                dst_ip=ep2[0],
+                dst_port=ep2[1] if ep2[1] != 0 else None,
+                protocol=proto,
+                packets=stats["packets"],
+                bytes=stats["bytes"],
+                start_time=stats["start_time"],
+                duration_seconds=duration,
+            )
+        )
 
     # Sort by packet count and return top N
     result.sort(key=lambda c: c.packets, reverse=True)
@@ -382,16 +382,18 @@ def analyze_throughput(
         )
 
     # Aggregate bidirectional conversations with per-direction byte counters.
-    convos = defaultdict(lambda: {
-        "packets_total": 0,
-        "bytes_total": 0,
-        "packets_ab": 0,
-        "bytes_ab": 0,
-        "packets_ba": 0,
-        "bytes_ba": 0,
-        "start_time": None,
-        "end_time": None,
-    })
+    convos = defaultdict(
+        lambda: {
+            "packets_total": 0,
+            "bytes_total": 0,
+            "packets_ab": 0,
+            "bytes_ab": 0,
+            "packets_ba": 0,
+            "bytes_ba": 0,
+            "start_time": None,
+            "end_time": None,
+        }
+    )
 
     for pkt in packets:
         if IP not in pkt:
@@ -451,7 +453,9 @@ def analyze_throughput(
     for (a, b, proto), s in convos.items():
         start = s["start_time"]
         end = s["end_time"]
-        duration = float(end - start) if (start is not None and end is not None and end >= start) else None
+        duration = (
+            float(end - start) if (start is not None and end is not None and end >= start) else None
+        )
         if duration is not None and duration <= 0:
             duration = None
 
@@ -484,26 +488,28 @@ def analyze_throughput(
         dst_port = None if dst[1] == 0 else dst[1]
         direction = f"{src[0]}:{src_port or 0} -> {dst[0]}:{dst_port or 0}"
 
-        conversations.append(ThroughputConversation(
-            src_ip=src[0],
-            src_port=src_port,
-            dst_ip=dst[0],
-            dst_port=dst_port,
-            protocol=proto,
-            packets_total=s["packets_total"],
-            bytes_total=s["bytes_total"],
-            duration_seconds=duration,
-            start_time=start,
-            end_time=end,
-            packets_forward=pkts_f,
-            bytes_forward=bytes_f,
-            packets_reverse=pkts_r,
-            bytes_reverse=bytes_r,
-            mbps_forward=mbps_f,
-            mbps_reverse=mbps_r,
-            mbps_total=mbps_t,
-            direction=direction,
-        ))
+        conversations.append(
+            ThroughputConversation(
+                src_ip=src[0],
+                src_port=src_port,
+                dst_ip=dst[0],
+                dst_port=dst_port,
+                protocol=proto,
+                packets_total=s["packets_total"],
+                bytes_total=s["bytes_total"],
+                duration_seconds=duration,
+                start_time=start,
+                end_time=end,
+                packets_forward=pkts_f,
+                bytes_forward=bytes_f,
+                packets_reverse=pkts_r,
+                bytes_reverse=bytes_r,
+                mbps_forward=mbps_f,
+                mbps_reverse=mbps_r,
+                mbps_total=mbps_t,
+                direction=direction,
+            )
+        )
 
     sort_by_norm = sort_by.lower().strip()
     if sort_by_norm not in {"mbps_total", "bytes_total"}:
@@ -592,12 +598,14 @@ def find_tcp_issues(
         )
 
     # Track TCP state per flow
-    flows = defaultdict(lambda: {
-        "seq_seen": set(),
-        "last_seq": None,
-        "last_ack": None,
-        "ack_count": defaultdict(int),
-    })
+    flows = defaultdict(
+        lambda: {
+            "seq_seen": set(),
+            "last_seq": None,
+            "last_ack": None,
+            "ack_count": defaultdict(int),
+        }
+    )
 
     issues_count = defaultdict(lambda: {"count": 0, "flows": set()})
     total_tcp = 0
@@ -646,46 +654,54 @@ def find_tcp_issues(
     if issues_count["retransmission"]["count"] > 0:
         count = issues_count["retransmission"]["count"]
         severity = "high" if count > 100 else "medium" if count > 10 else "low"
-        issues.append(TcpIssue(
-            issue_type="retransmission",
-            count=count,
-            affected_flows=list(issues_count["retransmission"]["flows"])[:5],
-            severity=severity,
-            recommendation="Retransmissions indicate packet loss. Check for network congestion, faulty links, or interface errors along the path.",
-        ))
+        issues.append(
+            TcpIssue(
+                issue_type="retransmission",
+                count=count,
+                affected_flows=list(issues_count["retransmission"]["flows"])[:5],
+                severity=severity,
+                recommendation="Retransmissions indicate packet loss. Check for network congestion, faulty links, or interface errors along the path.",
+            )
+        )
 
     if issues_count["reset"]["count"] > 0:
         count = issues_count["reset"]["count"]
         severity = "medium" if count > 50 else "low"
-        issues.append(TcpIssue(
-            issue_type="reset",
-            count=count,
-            affected_flows=list(issues_count["reset"]["flows"])[:5],
-            severity=severity,
-            recommendation="TCP resets may indicate connection refusals, application crashes, or firewall interference.",
-        ))
+        issues.append(
+            TcpIssue(
+                issue_type="reset",
+                count=count,
+                affected_flows=list(issues_count["reset"]["flows"])[:5],
+                severity=severity,
+                recommendation="TCP resets may indicate connection refusals, application crashes, or firewall interference.",
+            )
+        )
 
     if issues_count["zero_window"]["count"] > 0:
         count = issues_count["zero_window"]["count"]
         severity = "high" if count > 50 else "medium"
-        issues.append(TcpIssue(
-            issue_type="zero_window",
-            count=count,
-            affected_flows=list(issues_count["zero_window"]["flows"])[:5],
-            severity=severity,
-            recommendation="Zero window indicates receiver buffer is full. Check application performance or increase buffer sizes.",
-        ))
+        issues.append(
+            TcpIssue(
+                issue_type="zero_window",
+                count=count,
+                affected_flows=list(issues_count["zero_window"]["flows"])[:5],
+                severity=severity,
+                recommendation="Zero window indicates receiver buffer is full. Check application performance or increase buffer sizes.",
+            )
+        )
 
     if issues_count["dup_ack"]["count"] > 0:
         count = issues_count["dup_ack"]["count"]
         severity = "medium" if count > 20 else "low"
-        issues.append(TcpIssue(
-            issue_type="duplicate_ack",
-            count=count,
-            affected_flows=list(issues_count["dup_ack"]["flows"])[:5],
-            severity=severity,
-            recommendation="Duplicate ACKs often precede retransmissions and indicate out-of-order delivery or packet loss.",
-        ))
+        issues.append(
+            TcpIssue(
+                issue_type="duplicate_ack",
+                count=count,
+                affected_flows=list(issues_count["dup_ack"]["flows"])[:5],
+                severity=severity,
+                recommendation="Duplicate ACKs often precede retransmissions and indicate out-of-order delivery or packet loss.",
+            )
+        )
 
     # Build summary
     if not issues:
@@ -790,7 +806,11 @@ def analyze_dns_traffic(
         # Query
         if dns_layer.qr == 0 and DNSQR in pkt:
             total_queries += 1
-            qname = pkt[DNSQR].qname.decode() if isinstance(pkt[DNSQR].qname, bytes) else str(pkt[DNSQR].qname)
+            qname = (
+                pkt[DNSQR].qname.decode()
+                if isinstance(pkt[DNSQR].qname, bytes)
+                else str(pkt[DNSQR].qname)
+            )
             qname = qname.rstrip(".")
             qtype = pkt[DNSQR].qtype
 
@@ -819,25 +839,26 @@ def analyze_dns_traffic(
 
                 # Track failures
                 if rcode != 0:
-                    failed.append({
-                        "domain": query["name"],
-                        "error": rcode_name,
-                        "client": query["client"],
-                    })
+                    failed.append(
+                        {
+                            "domain": query["name"],
+                            "error": rcode_name,
+                            "client": query["client"],
+                        }
+                    )
 
                 # Track slow queries (>100ms)
                 if response_time and response_time > 100:
-                    slow_queries.append({
-                        "domain": query["name"],
-                        "response_time_ms": round(response_time, 2),
-                        "client": query["client"],
-                    })
+                    slow_queries.append(
+                        {
+                            "domain": query["name"],
+                            "response_time_ms": round(response_time, 2),
+                            "client": query["client"],
+                        }
+                    )
 
     # Top queried domains
-    top_domains = [
-        {"domain": domain, "count": count}
-        for domain, count in domains.most_common(10)
-    ]
+    top_domains = [{"domain": domain, "count": count} for domain, count in domains.most_common(10)]
 
     # Build summary
     summary_parts = [f"DNS analysis: {total_queries} queries, {total_responses} responses"]
@@ -1022,18 +1043,24 @@ def filter_packets(
                 elif UDP in pkt:
                     info_parts.append(f"{pkt[UDP].sport} -> {pkt[UDP].dport}")
                 elif DNS in pkt and DNSQR in pkt:
-                    qname = pkt[DNSQR].qname.decode() if isinstance(pkt[DNSQR].qname, bytes) else str(pkt[DNSQR].qname)
+                    qname = (
+                        pkt[DNSQR].qname.decode()
+                        if isinstance(pkt[DNSQR].qname, bytes)
+                        else str(pkt[DNSQR].qname)
+                    )
                     info_parts.append(qname)
 
-                matching.append(FilteredPacket(
-                    packet_number=i,
-                    timestamp=float(pkt.time) if hasattr(pkt, "time") else 0,
-                    src_ip=src,
-                    dst_ip=dst,
-                    protocol=proto,
-                    length=len(pkt),
-                    info=" ".join(info_parts),
-                ))
+                matching.append(
+                    FilteredPacket(
+                        packet_number=i,
+                        timestamp=float(pkt.time) if hasattr(pkt, "time") else 0,
+                        src_ip=src,
+                        dst_ip=dst,
+                        protocol=proto,
+                        length=len(pkt),
+                        info=" ".join(info_parts),
+                    )
+                )
 
     summary = f"Filter '{filter_expr}': {match_count} packets matched out of {len(packets)} scanned"
     if match_count > max_results:
@@ -1120,7 +1147,9 @@ def get_protocol_hierarchy(
             "packets": count,
             "bytes": proto_bytes[proto],
             "packet_percent": round(count / total_pkts * 100, 2) if total_pkts > 0 else 0,
-            "byte_percent": round(proto_bytes[proto] / total_bytes * 100, 2) if total_bytes > 0 else 0,
+            "byte_percent": round(proto_bytes[proto] / total_bytes * 100, 2)
+            if total_bytes > 0
+            else 0,
         }
 
     # Top protocols
@@ -1139,7 +1168,7 @@ def get_protocol_hierarchy(
         proto_summary = ", ".join(f"{p['protocol']} ({p['percent']}%)" for p in top_3)
         summary = f"Protocol breakdown of {total_pkts} packets: {proto_summary}"
     else:
-        summary = f"No packets found in capture"
+        summary = "No packets found in capture"
 
     return ProtocolHierarchyResult(
         success=True,
@@ -1328,15 +1357,177 @@ def custom_scapy_filter(
                     raise ValueError("Only len(...) and pkt.haslayer(...) calls are allowed")
                 self.generic_visit(node)
 
+        allowed_attrs = {
+            # Common layer fields
+            "src",
+            "dst",
+            "sport",
+            "dport",
+            "proto",
+            "ttl",
+            "id",
+            "seq",
+            "ack",
+            "window",
+            "chksum",
+            "flags",
+            "payload",
+            # DNS
+            "qname",
+            "qtype",
+            "rdata",
+            "qr",
+            "opcode",
+            "rcode",
+        }
+
+        class StrictValidator(Validator):
+            def visit_Attribute(self, node: ast.Attribute):
+                # Block dunder traversal and restrict which fields can be read
+                if node.attr.startswith("__"):
+                    raise ValueError("Dunder attribute access is not allowed")
+                if node.attr not in allowed_attrs:
+                    raise ValueError(f"Unsupported attribute: {node.attr}")
+                self.generic_visit(node)
+
+            def visit_Subscript(self, node: ast.Subscript):
+                # Only allow pkt[<Layer>] indexing
+                if not (isinstance(node.value, ast.Name) and node.value.id == "pkt"):
+                    raise ValueError("Only pkt[Layer] indexing is allowed")
+                if not isinstance(node.slice, ast.Name) or node.slice.id not in {
+                    "IP",
+                    "TCP",
+                    "UDP",
+                    "ICMP",
+                    "DNS",
+                    "DNSQR",
+                    "DNSRR",
+                }:
+                    raise ValueError("pkt[...] index must be a known layer name (e.g., TCP, IP)")
+                self.generic_visit(node)
+
         tree = ast.parse(expr, mode="eval")
-        Validator().visit(tree)
-        code = compile(tree, "<custom_scapy_filter>", "eval")
+        StrictValidator().visit(tree)
+
+        def _eval_node(node: ast.AST, local_ns: dict):
+            if isinstance(node, ast.Expression):
+                return _eval_node(node.body, local_ns)
+
+            if isinstance(node, ast.Constant):
+                return node.value
+
+            if isinstance(node, ast.Name):
+                return local_ns[node.id]
+
+            if isinstance(node, ast.BoolOp):
+                if isinstance(node.op, ast.And):
+                    for v in node.values:
+                        if not bool(_eval_node(v, local_ns)):
+                            return False
+                    return True
+                if isinstance(node.op, ast.Or):
+                    for v in node.values:
+                        if bool(_eval_node(v, local_ns)):
+                            return True
+                    return False
+                raise ValueError("Unsupported boolean operator")
+
+            if isinstance(node, ast.UnaryOp):
+                if isinstance(node.op, ast.Not):
+                    return not bool(_eval_node(node.operand, local_ns))
+                if isinstance(node.op, ast.UAdd):
+                    return +_eval_node(node.operand, local_ns)
+                if isinstance(node.op, ast.USub):
+                    return -_eval_node(node.operand, local_ns)
+                raise ValueError("Unsupported unary operator")
+
+            if isinstance(node, ast.BinOp):
+                left = _eval_node(node.left, local_ns)
+                right = _eval_node(node.right, local_ns)
+                op = node.op
+                if isinstance(op, ast.Add):
+                    return left + right
+                if isinstance(op, ast.Sub):
+                    return left - right
+                if isinstance(op, ast.Mult):
+                    return left * right
+                if isinstance(op, ast.Div):
+                    return left / right
+                if isinstance(op, ast.Mod):
+                    return left % right
+                if isinstance(op, ast.BitAnd):
+                    return left & right
+                if isinstance(op, ast.BitOr):
+                    return left | right
+                if isinstance(op, ast.BitXor):
+                    return left ^ right
+                if isinstance(op, ast.LShift):
+                    return left << right
+                if isinstance(op, ast.RShift):
+                    return left >> right
+                raise ValueError("Unsupported binary operator")
+
+            if isinstance(node, ast.Compare):
+                left = _eval_node(node.left, local_ns)
+                for op, comp in zip(node.ops, node.comparators, strict=False):
+                    right = _eval_node(comp, local_ns)
+                    ok = None
+                    if isinstance(op, ast.In):
+                        ok = left in right
+                    elif isinstance(op, ast.NotIn):
+                        ok = left not in right
+                    elif isinstance(op, ast.Eq):
+                        ok = left == right
+                    elif isinstance(op, ast.NotEq):
+                        ok = left != right
+                    elif isinstance(op, ast.Lt):
+                        ok = left < right
+                    elif isinstance(op, ast.LtE):
+                        ok = left <= right
+                    elif isinstance(op, ast.Gt):
+                        ok = left > right
+                    elif isinstance(op, ast.GtE):
+                        ok = left >= right
+                    elif isinstance(op, ast.Is):
+                        ok = left is right
+                    elif isinstance(op, ast.IsNot):
+                        ok = left is not right
+                    else:
+                        raise ValueError("Unsupported comparison operator")
+                    if not ok:
+                        return False
+                    left = right
+                return True
+
+            if isinstance(node, ast.Subscript):
+                value = _eval_node(node.value, local_ns)
+                idx = _eval_node(node.slice, local_ns)
+                return value[idx]
+
+            if isinstance(node, ast.Attribute):
+                value = _eval_node(node.value, local_ns)
+                return getattr(value, node.attr)
+
+            if isinstance(node, ast.Call):
+                # Only allow:
+                # - len(<expr>)
+                # - pkt.haslayer(<Layer>)
+                if isinstance(node.func, ast.Name) and node.func.id == "len":
+                    return len(_eval_node(node.args[0], local_ns))
+                if isinstance(node.func, ast.Attribute) and node.func.attr == "haslayer":
+                    # Must be called as pkt.haslayer(Layer)
+                    pkt_obj = _eval_node(node.func.value, local_ns)
+                    layer = _eval_node(node.args[0], local_ns)
+                    return bool(pkt_obj.haslayer(layer))
+                raise ValueError("Unsupported call")
+
+            raise ValueError(f"Unsupported syntax: {type(node).__name__}")
 
         def filter_func(pkt):
             local_ns = safe_namespace.copy()
             local_ns["pkt"] = pkt
             try:
-                return bool(eval(code, {"__builtins__": {}}, local_ns))
+                return bool(_eval_node(tree, local_ns))
             except Exception:
                 return False
 
@@ -1390,18 +1581,24 @@ def custom_scapy_filter(
                     elif UDP in pkt:
                         info_parts.append(f"{pkt[UDP].sport} -> {pkt[UDP].dport}")
                     elif DNS in pkt and DNSQR in pkt:
-                        qname = pkt[DNSQR].qname.decode() if isinstance(pkt[DNSQR].qname, bytes) else str(pkt[DNSQR].qname)
+                        qname = (
+                            pkt[DNSQR].qname.decode()
+                            if isinstance(pkt[DNSQR].qname, bytes)
+                            else str(pkt[DNSQR].qname)
+                        )
                         info_parts.append(qname)
 
-                    matching.append(FilteredPacket(
-                        packet_number=i,
-                        timestamp=float(pkt.time) if hasattr(pkt, "time") else 0,
-                        src_ip=src,
-                        dst_ip=dst,
-                        protocol=proto,
-                        length=len(pkt),
-                        info=" ".join(info_parts),
-                    ))
+                    matching.append(
+                        FilteredPacket(
+                            packet_number=i,
+                            timestamp=float(pkt.time) if hasattr(pkt, "time") else 0,
+                            src_ip=src,
+                            dst_ip=dst,
+                            protocol=proto,
+                            length=len(pkt),
+                            info=" ".join(info_parts),
+                        )
+                    )
         except Exception:
             # Skip packets that cause filter errors
             continue

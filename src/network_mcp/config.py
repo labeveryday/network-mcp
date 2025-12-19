@@ -54,7 +54,6 @@ import socket
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -64,11 +63,13 @@ class SecurityConfig:
     """Security configuration for target validation."""
 
     allowed_targets: list[str] = field(default_factory=list)
-    blocked_targets: list[str] = field(default_factory=lambda: [
-        "169.254.169.254",  # AWS metadata
-        "metadata.google.internal",  # GCP metadata
-        "100.100.100.200",  # Alibaba metadata
-    ])
+    blocked_targets: list[str] = field(
+        default_factory=lambda: [
+            "169.254.169.254",  # AWS metadata
+            "metadata.google.internal",  # GCP metadata
+            "100.100.100.200",  # Alibaba metadata
+        ]
+    )
     block_private: bool = False
     block_cloud_metadata: bool = True
 
@@ -94,12 +95,29 @@ class PcapConfig:
             str(Path.home() / "Desktop"),
         ],
     )
-    blocked_filter_keywords: list[str] = field(default_factory=lambda: [
-        "send", "sendp", "sr", "srp", "sr1", "srp1", "srloop", "srploop",
-        "sniff", "bridge_and_sniff", "sendpfast",
-        "import", "exec", "eval", "compile", "__",
-        "os.", "subprocess", "system",
-    ])
+    blocked_filter_keywords: list[str] = field(
+        default_factory=lambda: [
+            "send",
+            "sendp",
+            "sr",
+            "srp",
+            "sr1",
+            "srp1",
+            "srloop",
+            "srploop",
+            "sniff",
+            "bridge_and_sniff",
+            "sendpfast",
+            "import",
+            "exec",
+            "eval",
+            "compile",
+            "__",
+            "os.",
+            "subprocess",
+            "system",
+        ]
+    )
 
 
 @dataclass
@@ -347,8 +365,21 @@ def _validate_ast_safety(filter_expr: str) -> tuple[bool, str | None]:
 
     # Allowed identifier names
     allowed_names = {
-        "TCP", "UDP", "IP", "ICMP", "DNS", "DNSQR", "DNSRR", "ARP", "Ether",
-        "pkt", "packet", "True", "False", "None", "len",
+        "TCP",
+        "UDP",
+        "IP",
+        "ICMP",
+        "DNS",
+        "DNSQR",
+        "DNSRR",
+        "ARP",
+        "Ether",
+        "pkt",
+        "packet",
+        "True",
+        "False",
+        "None",
+        "len",
     }
 
     # Allowed method names for call nodes
@@ -356,10 +387,29 @@ def _validate_ast_safety(filter_expr: str) -> tuple[bool, str | None]:
 
     # Allowed attributes
     allowed_attrs = {
-        "src", "dst", "sport", "dport", "flags", "proto", "type", "ttl",
-        "len", "id", "seq", "ack", "window", "chksum", "payload",
-        "qname", "qtype", "rdata", "qr", "opcode", "rcode",
-        "haslayer", "getlayer",
+        "src",
+        "dst",
+        "sport",
+        "dport",
+        "flags",
+        "proto",
+        "type",
+        "ttl",
+        "len",
+        "id",
+        "seq",
+        "ack",
+        "window",
+        "chksum",
+        "payload",
+        "qname",
+        "qtype",
+        "rdata",
+        "qr",
+        "opcode",
+        "rcode",
+        "haslayer",
+        "getlayer",
     }
 
     def check_node(node) -> tuple[bool, str | None]:
@@ -485,7 +535,7 @@ def validate_scapy_filter(filter_expr: str) -> tuple[bool, str | None]:
     filter_lower = filter_expr.lower()
     for keyword in config.pcap.blocked_filter_keywords:
         # Use word boundary matching to avoid matching substrings like 'src' matching 'sr'
-        pattern = r'\b' + re.escape(keyword.lower()) + r'\b'
+        pattern = r"\b" + re.escape(keyword.lower()) + r"\b"
         if re.search(pattern, filter_lower):
             return False, f"Filter contains blocked keyword: '{keyword}'"
 

@@ -21,5 +21,3 @@ def test_traceroute_does_not_parse_numeric_fragments_as_ip(mock_run, _sys, _val)
     assert result.success is True
     assert result.hops[0].ip_address == "10.0.0.1"
     assert result.hops[1].ip_address == "93.184.216.34"
-
-

@@ -4,13 +4,13 @@ These tools provide smart summarization of network connectivity tests,
 returning structured data optimized for LLM consumption.
 """
 
+import ipaddress
 import platform
 import re
 import shutil
 import socket
 import subprocess
 import time
-import ipaddress
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal
 
@@ -193,7 +193,9 @@ def ping(
             max_latency = float(match.group(3))
             stddev_latency = float(match.group(4))
 
-    packet_loss = ((packets_sent - packets_received) / packets_sent * 100) if packets_sent > 0 else 100.0
+    packet_loss = (
+        ((packets_sent - packets_received) / packets_sent * 100) if packets_sent > 0 else 100.0
+    )
     success = packets_received > 0
 
     # Build summary
@@ -203,7 +205,9 @@ def ping(
         else:
             summary = f"{target} is reachable but experiencing {packet_loss:.0f}% packet loss. Avg latency {avg_latency:.1f}ms when responding"
     else:
-        summary = f"{target} is unreachable - no ICMP replies received. Host may be down or blocking ICMP"
+        summary = (
+            f"{target} is unreachable - no ICMP replies received. Host may be down or blocking ICMP"
+        )
 
     return PingResult(
         success=success,
@@ -328,13 +332,15 @@ def traceroute(
 
         # Check for timeout
         if rest.strip() == "* * *" or "Request timed out" in rest:
-            hops.append(TracerouteHop(
-                hop_number=hop_num,
-                ip_address=None,
-                hostname=None,
-                latency_ms=[],
-                packet_loss=True,
-            ))
+            hops.append(
+                TracerouteHop(
+                    hop_number=hop_num,
+                    ip_address=None,
+                    hostname=None,
+                    latency_ms=[],
+                    packet_loss=True,
+                )
+            )
             continue
 
         # Extract IP and hostname
@@ -356,7 +362,9 @@ def traceroute(
         avg_latency = sum(latencies) / len(latencies) if latencies else None
 
         # Check if destination reached
-        is_destination = (ip_address == target_ip) or (resolved_ip is not None and ip_address == resolved_ip)
+        is_destination = (ip_address == target_ip) or (
+            resolved_ip is not None and ip_address == resolved_ip
+        )
         if is_destination:
             reached_destination = True
 
@@ -364,15 +372,17 @@ def traceroute(
         if avg_latency and avg_latency > 100:
             issues.append(f"High latency at hop {hop_num} ({avg_latency:.0f}ms)")
 
-        hops.append(TracerouteHop(
-            hop_number=hop_num,
-            ip_address=ip_address,
-            hostname=hostname,
-            latency_ms=latencies,
-            avg_latency_ms=avg_latency,
-            packet_loss="*" in rest,
-            is_destination=is_destination,
-        ))
+        hops.append(
+            TracerouteHop(
+                hop_number=hop_num,
+                ip_address=ip_address,
+                hostname=hostname,
+                latency_ms=latencies,
+                avg_latency_ms=avg_latency,
+                packet_loss="*" in rest,
+                is_destination=is_destination,
+            )
+        )
 
     # Check for packet loss issues
     consecutive_loss = 0
@@ -382,7 +392,9 @@ def traceroute(
         else:
             consecutive_loss = 0
         if consecutive_loss >= 3:
-            issues.append(f"Multiple consecutive hops with packet loss starting at hop {hop.hop_number - 2}")
+            issues.append(
+                f"Multiple consecutive hops with packet loss starting at hop {hop.hop_number - 2}"
+            )
             break
 
     # Build summary
@@ -813,7 +825,6 @@ def mtr(
                 hostname = match.group(1)
                 loss = float(match.group(2))
                 sent = int(match.group(3))
-                last = float(match.group(4))
                 avg = float(match.group(5))
                 best = float(match.group(6))
                 worst = float(match.group(7))
@@ -825,7 +836,6 @@ def mtr(
             hostname = match.group(2)
             loss = float(match.group(3))
             sent = int(match.group(4))
-            last = float(match.group(5))
             avg = float(match.group(6))
             best = float(match.group(7))
             worst = float(match.group(8))
@@ -843,7 +853,9 @@ def mtr(
                 host = hostname.split("(")[0].strip()
 
         # Check if destination
-        is_dest = hostname == target or hostname == target_ip or (resolved_ip and hostname == resolved_ip)
+        is_dest = (
+            hostname == target or hostname == target_ip or (resolved_ip and hostname == resolved_ip)
+        )
         if is_dest:
             reached_destination = True
 
@@ -853,18 +865,20 @@ def mtr(
         if avg > 100:
             issues.append(f"Hop {hop_num} has high latency ({avg:.0f}ms avg)")
 
-        hops.append(MtrHop(
-            hop_number=hop_num,
-            ip_address=ip_address,
-            hostname=host,
-            loss_percent=loss,
-            sent=sent,
-            received=int(sent * (100 - loss) / 100),
-            best_ms=best,
-            avg_ms=avg,
-            worst_ms=worst,
-            stddev_ms=stddev,
-        ))
+        hops.append(
+            MtrHop(
+                hop_number=hop_num,
+                ip_address=ip_address,
+                hostname=host,
+                loss_percent=loss,
+                sent=sent,
+                received=int(sent * (100 - loss) / 100),
+                best_ms=best,
+                avg_ms=avg,
+                worst_ms=worst,
+                stddev_ms=stddev,
+            )
+        )
 
     # Build summary
     if reached_destination:
@@ -950,8 +964,7 @@ def batch_ping(
     if targets_to_ping:
         with ThreadPoolExecutor(max_workers=min(max_concurrent, len(targets_to_ping))) as executor:
             future_to_target = {
-                executor.submit(ping_target, target): target
-                for target in targets_to_ping
+                executor.submit(ping_target, target): target for target in targets_to_ping
             }
 
             for future in as_completed(future_to_target):
@@ -960,19 +973,23 @@ def batch_ping(
                     result = future.result()
                     results.append(result)
                 except Exception as e:
-                    results.append(BatchPingTargetResult(
-                        target=target,
-                        success=False,
-                        error=str(e),
-                    ))
+                    results.append(
+                        BatchPingTargetResult(
+                            target=target,
+                            success=False,
+                            error=str(e),
+                        )
+                    )
 
     # Add blocked targets to results
     for blocked in blocked_targets:
-        results.append(BatchPingTargetResult(
-            target=blocked["target"],
-            success=False,
-            error=f"Target blocked: {blocked['error']}",
-        ))
+        results.append(
+            BatchPingTargetResult(
+                target=blocked["target"],
+                success=False,
+                error=f"Target blocked: {blocked['error']}",
+            )
+        )
 
     # Calculate statistics
     successful = sum(1 for r in results if r.success and r.packets_received > 0)
@@ -1052,10 +1069,7 @@ def batch_port_check(
 
     if ports:
         with ThreadPoolExecutor(max_workers=min(max_concurrent, len(ports))) as executor:
-            future_to_port = {
-                executor.submit(check_port, port): port
-                for port in ports
-            }
+            future_to_port = {executor.submit(check_port, port): port for port in ports}
 
             for future in as_completed(future_to_port):
                 port = future_to_port[future]
@@ -1063,10 +1077,12 @@ def batch_port_check(
                     result = future.result()
                     results.append(result)
                 except Exception:
-                    results.append(BatchPortResult(
-                        port=port,
-                        is_open=False,
-                    ))
+                    results.append(
+                        BatchPortResult(
+                            port=port,
+                            is_open=False,
+                        )
+                    )
 
     # Sort by port number
     results.sort(key=lambda r: r.port)
@@ -1128,10 +1144,7 @@ def batch_dns_lookup(
 
     if queries:
         with ThreadPoolExecutor(max_workers=min(max_concurrent, len(queries))) as executor:
-            future_to_query = {
-                executor.submit(lookup_domain, query): query
-                for query in queries
-            }
+            future_to_query = {executor.submit(lookup_domain, query): query for query in queries}
 
             for future in as_completed(future_to_query):
                 query = future_to_query[future]
@@ -1139,11 +1152,13 @@ def batch_dns_lookup(
                     result = future.result()
                     results.append(result)
                 except Exception as e:
-                    results.append(BatchDnsTargetResult(
-                        query=query,
-                        success=False,
-                        error=str(e),
-                    ))
+                    results.append(
+                        BatchDnsTargetResult(
+                            query=query,
+                            success=False,
+                            error=str(e),
+                        )
+                    )
 
     # Calculate statistics
     successful = sum(1 for r in results if r.success)

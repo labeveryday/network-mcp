@@ -13,5 +13,3 @@ def test_capabilities_structure():
     assert isinstance(result.security, dict)
     assert isinstance(result.pcap, dict)
     assert "summary" in result.model_dump()
-
-

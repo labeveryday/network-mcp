@@ -1,5 +1,6 @@
 """Network tools for MCP server."""
 
+from network_mcp.tools.capabilities import capabilities
 from network_mcp.tools.connectivity import (
     batch_dns_lookup,
     batch_ping,
@@ -10,6 +11,7 @@ from network_mcp.tools.connectivity import (
     port_check,
     traceroute,
 )
+from network_mcp.tools.external_intel import asn_lookup, rdap_lookup
 from network_mcp.tools.local import (
     get_arp_table,
     get_connections,
@@ -27,8 +29,6 @@ from network_mcp.tools.pcap import (
     get_protocol_hierarchy,
     pcap_summary,
 )
-from network_mcp.tools.capabilities import capabilities
-from network_mcp.tools.external_intel import asn_lookup, rdap_lookup
 
 __all__ = [
     # Diagnostics

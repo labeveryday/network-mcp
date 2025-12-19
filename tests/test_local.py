@@ -1,16 +1,16 @@
 """Tests for local network info tools."""
 
-import platform
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from network_mcp.tools.local import (
-    get_interfaces,
-    get_routes,
-    get_dns_config,
     get_arp_table,
     get_connections,
+    get_dns_config,
+    get_interfaces,
     get_public_ip,
+    get_routes,
 )
 
 
@@ -31,12 +31,6 @@ class TestGetInterfaces:
         """Test that loopback interface is typically present."""
         result = get_interfaces()
         if result.success and result.interfaces:
-            interface_names = [iface.name.lower() for iface in result.interfaces]
-            # Check for loopback - different names on different platforms
-            has_loopback = any(
-                name in interface_names or "lo" in name
-                for name in ["lo", "lo0", "loopback"]
-            )
             # loopback may not always be present in output
             assert result.success is True
 
@@ -222,6 +216,7 @@ class TestGetPublicIp:
     def test_get_public_ip_all_services_fail(self, mock_urlopen):
         """Test handling when all services fail."""
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("No internet")
 
         result = get_public_ip()

@@ -3,17 +3,16 @@
 import os
 import tempfile
 
-import pytest
 from scapy.all import IP, TCP, Raw, wrpcap
 
 from network_mcp.tools.pcap import (
-    pcap_summary,
-    get_conversations,
-    find_tcp_issues,
     analyze_dns_traffic,
-    filter_packets,
-    get_protocol_hierarchy,
     custom_scapy_filter,
+    filter_packets,
+    find_tcp_issues,
+    get_conversations,
+    get_protocol_hierarchy,
+    pcap_summary,
 )
 
 
@@ -157,7 +156,11 @@ class TestCustomScapyFilter:
         os.close(fd)
         try:
             # SYN packet (flags has 0x02 bit)
-            p = IP(src="10.0.0.1", dst="10.0.0.2") / TCP(sport=12345, dport=80, flags="S") / Raw(load=b"x")
+            p = (
+                IP(src="10.0.0.1", dst="10.0.0.2")
+                / TCP(sport=12345, dport=80, flags="S")
+                / Raw(load=b"x")
+            )
             p.time = 1.0
             wrpcap(path, [p])
 
