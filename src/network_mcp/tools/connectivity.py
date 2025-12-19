@@ -10,6 +10,7 @@ import shutil
 import socket
 import subprocess
 import time
+import ipaddress
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal
 
@@ -46,6 +47,31 @@ def _resolve_hostname(hostname: str) -> str | None:
         return socket.gethostbyname(hostname)
     except socket.gaierror:
         return None
+
+
+def _extract_ip_candidate(text: str) -> str | None:
+    """Extract a valid IPv4/IPv6 address from an arbitrary traceroute/mtr segment."""
+    # Prefer addresses in parentheses: "host (1.2.3.4)" or "(2001:db8::1)"
+    for candidate in re.findall(r"\(([^)]+)\)", text):
+        candidate = candidate.strip()
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
+
+    # Otherwise scan tokens and validate them as full IPs (avoid numeric fragments like "93" or "301")
+    tokens = re.split(r"[\s,\[\]<>]+", text)
+    for tok in tokens:
+        tok = tok.strip("()")
+        if not tok:
+            continue
+        # Strip common trailing punctuation
+        tok = tok.strip(";:,")
+        try:
+            return str(ipaddress.ip_address(tok))
+        except ValueError:
+            continue
+    return None
 
 
 def ping(
@@ -312,13 +338,18 @@ def traceroute(
             continue
 
         # Extract IP and hostname
-        ip_match = re.search(r"\(?([\d.]+)\)?", rest)
-        ip_address = ip_match.group(1) if ip_match else None
+        ip_address = _extract_ip_candidate(rest)
 
         hostname = None
-        hostname_match = re.match(r"([a-zA-Z][\w.-]+)\s+", rest)
-        if hostname_match and hostname_match.group(1) != ip_address:
-            hostname = hostname_match.group(1)
+        # Heuristic: if the line begins with a hostname token, capture it (even if it starts with digits).
+        hostname_match = re.match(r"(\S+)\s+", rest)
+        if hostname_match:
+            candidate = hostname_match.group(1)
+            # Avoid treating an IP as hostname
+            try:
+                ipaddress.ip_address(candidate.strip("()"))
+            except ValueError:
+                hostname = candidate
 
         # Extract latencies
         latencies = [float(x) for x in re.findall(r"([\d.]+)\s*ms", rest)]
@@ -678,14 +709,30 @@ def mtr(
     # Check if mtr is available
     mtr_path = shutil.which("mtr")
     if not mtr_path:
+        # Fallback: provide actionable alternatives for agents (traceroute + ping)
+        tr = traceroute(target, max_hops=min(30, max(1, count)), timeout=timeout)
+        pg = ping(target, count=min(4, max(1, count)), timeout=timeout)
         return MtrResult(
             success=False,
             target=target,
-            resolved_ip=None,
+            resolved_ip=pg.resolved_ip or tr.resolved_ip,
             hops=[],
             report_cycles=count,
             reached_destination=False,
-            summary="MTR is not installed on this system. Install with: brew install mtr (macOS) or apt install mtr (Linux)",
+            error_type="missing_dependency",
+            suggestion=(
+                "Install mtr (macOS: brew install mtr; Debian/Ubuntu: sudo apt-get install -y mtr; "
+                "RHEL/Fedora: sudo dnf install -y mtr; Alpine: apk add mtr). "
+                "If you cannot install it, use traceroute + ping fallbacks included in this response."
+            ),
+            fallback={
+                "traceroute": tr.model_dump(),
+                "ping": pg.model_dump(),
+            },
+            summary=(
+                "mtr is not installed on this system. Returning traceroute+ping fallback results. "
+                "Install mtr to get per-hop loss/latency statistics."
+            ),
         )
 
     resolved_ip = None
@@ -784,18 +831,15 @@ def mtr(
             worst = float(match.group(8))
             stddev = float(match.group(9)) if match.group(9) else None
 
-        # Determine IP vs hostname
-        ip_address = None
+        # Determine IP vs hostname (validate full IPs; avoid numeric fragments)
+        ip_address = _extract_ip_candidate(hostname) if hostname else None
         host = None
-        try:
-            socket.inet_aton(hostname)
-            ip_address = hostname
-        except socket.error:
-            host = hostname
-            # Try to extract IP if it's in format hostname (ip)
-            ip_match = re.search(r"\(([\d.]+)\)", hostname)
-            if ip_match:
-                ip_address = ip_match.group(1)
+        if hostname:
+            # If hostname token itself is an IP, leave host unset
+            try:
+                ipaddress.ip_address(hostname.strip("()"))
+            except ValueError:
+                # Strip "(ip)" suffix if present
                 host = hostname.split("(")[0].strip()
 
         # Check if destination

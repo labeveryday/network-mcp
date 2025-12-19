@@ -26,6 +26,9 @@ from network_mcp.tools.local import (
     get_public_ip as _get_public_ip,
     get_routes as _get_routes,
 )
+from network_mcp.tools.capabilities import capabilities as _capabilities
+from network_mcp.tools.external_intel import asn_lookup as _asn_lookup
+from network_mcp.tools.external_intel import rdap_lookup as _rdap_lookup
 from network_mcp.tools.pcap import (
     analyze_dns_traffic as _analyze_dns_traffic,
     custom_scapy_filter as _custom_scapy_filter,
@@ -46,6 +49,38 @@ mcp = FastMCP(
 # =============================================================================
 # Connectivity Tools
 # =============================================================================
+
+
+@mcp.tool()
+def capabilities() -> dict:
+    """Report server/runtime capabilities and dependency status.
+
+    Use this tool first when running with local/smaller models so the agent can
+    decide which tools will work (e.g., whether `mtr` is installed) and what
+    security/pcap guardrails are active.
+    """
+    result = _capabilities()
+    return result.model_dump()
+
+
+@mcp.tool()
+def rdap_lookup(query: str, timeout: int = 10) -> dict:
+    """WHOIS-style lookup using RDAP (Registration Data Access Protocol).
+
+    Use this to identify who owns an IP range or domain and to get registration metadata.
+    """
+    result = _rdap_lookup(query, timeout=timeout)
+    return result.model_dump()
+
+
+@mcp.tool()
+def asn_lookup(ip: str, timeout: int = 5) -> dict:
+    """Lookup origin ASN for an IP address (BGP origin intel).
+
+    Use this to quickly identify the ASN and prefix associated with an external IP.
+    """
+    result = _asn_lookup(ip, timeout=timeout)
+    return result.model_dump()
 
 
 @mcp.tool()

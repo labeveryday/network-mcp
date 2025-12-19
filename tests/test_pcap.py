@@ -21,7 +21,8 @@ class TestPcapSummary:
 
     def test_file_not_found(self):
         """Test handling of non-existent file."""
-        result = pcap_summary("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = pcap_summary(missing)
         assert result.success is False
         assert "not found" in result.summary.lower()
 
@@ -43,7 +44,8 @@ class TestGetConversations:
 
     def test_file_not_found(self):
         """Test handling of non-existent file."""
-        result = get_conversations("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = get_conversations(missing)
         assert result == []
 
 
@@ -52,13 +54,15 @@ class TestFindTcpIssues:
 
     def test_file_not_found(self):
         """Test handling of non-existent file."""
-        result = find_tcp_issues("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = find_tcp_issues(missing)
         assert result.success is False
         assert "not found" in result.summary.lower()
 
     def test_result_structure(self):
         """Test that result has correct structure."""
-        result = find_tcp_issues("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = find_tcp_issues(missing)
         assert hasattr(result, "success")
         assert hasattr(result, "file_path")
         assert hasattr(result, "total_tcp_packets")
@@ -72,13 +76,15 @@ class TestAnalyzeDnsTraffic:
 
     def test_file_not_found(self):
         """Test handling of non-existent file."""
-        result = analyze_dns_traffic("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = analyze_dns_traffic(missing)
         assert result.success is False
         assert "not found" in result.summary.lower()
 
     def test_result_structure(self):
         """Test that result has correct structure."""
-        result = analyze_dns_traffic("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = analyze_dns_traffic(missing)
         assert hasattr(result, "success")
         assert hasattr(result, "total_dns_packets")
         assert hasattr(result, "total_queries")
@@ -91,13 +97,15 @@ class TestFilterPackets:
 
     def test_file_not_found(self):
         """Test handling of non-existent file."""
-        result = filter_packets("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = filter_packets(missing)
         assert result.success is False
         assert "not found" in result.summary.lower()
 
     def test_result_structure(self):
         """Test that result has correct structure."""
-        result = filter_packets("/nonexistent/file.pcap", src_ip="10.0.0.1")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = filter_packets(missing, src_ip="10.0.0.1")
         assert hasattr(result, "success")
         assert hasattr(result, "filter_expression")
         assert hasattr(result, "total_packets_scanned")
@@ -110,13 +118,15 @@ class TestGetProtocolHierarchy:
 
     def test_file_not_found(self):
         """Test handling of non-existent file."""
-        result = get_protocol_hierarchy("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = get_protocol_hierarchy(missing)
         assert result.success is False
         assert "not found" in result.summary.lower()
 
     def test_result_structure(self):
         """Test that result has correct structure."""
-        result = get_protocol_hierarchy("/nonexistent/file.pcap")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = get_protocol_hierarchy(missing)
         assert hasattr(result, "success")
         assert hasattr(result, "total_packets")
         assert hasattr(result, "total_bytes")
@@ -128,19 +138,22 @@ class TestCustomScapyFilter:
 
     def test_file_not_found(self):
         """Test handling of non-existent file."""
-        result = custom_scapy_filter("/nonexistent/file.pcap", "TCP in pkt")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = custom_scapy_filter(missing, "TCP in pkt")
         assert result.success is False
         assert "not found" in result.summary.lower() or "not found" in (result.error or "").lower()
 
     def test_invalid_filter_blocked(self):
         """Test that dangerous filters are blocked."""
-        result = custom_scapy_filter("/tmp/test.pcap", "import os")
+        allowed_missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = custom_scapy_filter(allowed_missing, "import os")
         assert result.success is False
         assert "blocked" in result.summary.lower() or "rejected" in result.summary.lower()
 
     def test_result_structure(self):
         """Test that result has correct structure."""
-        result = custom_scapy_filter("/nonexistent/file.pcap", "TCP in pkt")
+        missing = os.path.join(tempfile.gettempdir(), "network-mcp-does-not-exist.pcap")
+        result = custom_scapy_filter(missing, "TCP in pkt")
         assert hasattr(result, "success")
         assert hasattr(result, "filter_expression")
         assert hasattr(result, "total_packets_scanned")

@@ -51,6 +51,7 @@ import ipaddress
 import os
 import re
 import socket
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -78,6 +79,21 @@ class PcapConfig:
 
     max_packets: int = 100000
     allow_custom_filters: bool = True
+    # If set, pcap file access is restricted to these directories (after path resolution).
+    # Defaults are intentionally conservative for shared/runtime deployments.
+    allowed_paths: list[str] = field(
+        # Include common temp locations across platforms; macOS often resolves /tmp -> /private/tmp.
+        default_factory=lambda: [
+            str(Path.cwd()),
+            tempfile.gettempdir(),
+            "/tmp",
+            "/private/tmp",
+            # Common local-user locations (keeps workflow ergonomic without requiring /tmp copies)
+            str(Path.home() / "Documents"),
+            str(Path.home() / "Downloads"),
+            str(Path.home() / "Desktop"),
+        ],
+    )
     blocked_filter_keywords: list[str] = field(default_factory=lambda: [
         "send", "sendp", "sr", "srp", "sr1", "srp1", "srloop", "srploop",
         "sniff", "bridge_and_sniff", "sendpfast",
@@ -135,6 +151,10 @@ def _load_from_env(config: Config) -> None:
     if allow_filters := os.environ.get("NETWORK_MCP_ALLOW_CUSTOM_FILTERS"):
         config.pcap.allow_custom_filters = allow_filters.lower() in ("true", "1", "yes")
 
+    # NETWORK_MCP_PCAP_ALLOWED_PATHS=/tmp,/captures
+    if allowed_paths := os.environ.get("NETWORK_MCP_PCAP_ALLOWED_PATHS"):
+        config.pcap.allowed_paths = [p.strip() for p in allowed_paths.split(",") if p.strip()]
+
 
 def load_config(config_path: Path | str | None = None) -> Config:
     """Load configuration from file and environment."""
@@ -170,6 +190,8 @@ def load_config(config_path: Path | str | None = None) -> Config:
                 config.pcap.max_packets = pcap["max_packets"]
             if "allow_custom_filters" in pcap:
                 config.pcap.allow_custom_filters = pcap["allow_custom_filters"]
+            if "allowed_paths" in pcap:
+                config.pcap.allowed_paths = pcap["allowed_paths"]
             if "blocked_filter_keywords" in pcap:
                 config.pcap.blocked_filter_keywords = pcap["blocked_filter_keywords"]
 
@@ -422,18 +444,6 @@ def _validate_ast_safety(filter_expr: str) -> tuple[bool, str | None]:
                 return True, None
             return False, f"Disallowed literal type: {type(node.value).__name__}"
 
-        elif isinstance(node, ast.Num):
-            # Legacy number nodes (Python 3.7)
-            return True, None
-
-        elif isinstance(node, ast.Str):
-            # Legacy string nodes (Python 3.7)
-            return True, None
-
-        elif isinstance(node, ast.NameConstant):
-            # Legacy True/False/None (Python 3.7)
-            return True, None
-
         else:
             return False, f"Disallowed expression type: {type(node).__name__}"
 
@@ -484,3 +494,42 @@ def validate_scapy_filter(filter_expr: str) -> tuple[bool, str | None]:
         return False, f"Filter failed safety check: {error}"
 
     return True, None
+
+
+def validate_pcap_file_path(file_path: str) -> tuple[bool, str | None, str | None]:
+    """Validate a pcap file path against configured allowlist directories.
+
+    Returns:
+        (is_allowed, resolved_path, error_message)
+    """
+    config = get_config()
+    try:
+        path = Path(file_path).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        else:
+            path = path.resolve()
+    except Exception as e:
+        return False, None, f"Invalid path '{file_path}': {e}"
+
+    allowed_dirs = [p for p in (config.pcap.allowed_paths or []) if p]
+    if not allowed_dirs:
+        return True, str(path), None
+
+    for allowed in allowed_dirs:
+        try:
+            base = Path(allowed).expanduser().resolve()
+        except Exception:
+            continue
+
+        try:
+            path.relative_to(base)
+            return True, str(path), None
+        except ValueError:
+            continue
+
+    return (
+        False,
+        str(path),
+        f"PCAP path '{path}' is outside allowed directories: {', '.join(allowed_dirs)}",
+    )

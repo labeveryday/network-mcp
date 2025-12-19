@@ -4,7 +4,9 @@ These tools provide smart analysis of packet captures, doing heavy processing
 server-side and returning structured summaries optimized for LLM consumption.
 """
 
+import ast
 import os
+import re
 from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Callable
@@ -12,7 +14,7 @@ from typing import Callable
 from scapy.all import DNS, DNSQR, DNSRR, IP, TCP, UDP, rdpcap
 from scapy.layers.inet import ICMP
 
-from network_mcp.config import get_config, validate_scapy_filter
+from network_mcp.config import get_config, validate_pcap_file_path, validate_scapy_filter
 from network_mcp.models.responses import (
     Conversation,
     CustomFilterResult,
@@ -77,6 +79,12 @@ def _format_timestamp(ts) -> str:
     return datetime.fromtimestamp(float(ts)).isoformat()
 
 
+def _guard_pcap_path(file_path: str) -> tuple[bool, str, str | None]:
+    """Validate and normalize pcap file path access."""
+    allowed, resolved, error = validate_pcap_file_path(file_path)
+    return allowed, (resolved or file_path), error
+
+
 def pcap_summary(
     file_path: str,
     max_packets: int = 100000,
@@ -93,6 +101,16 @@ def pcap_summary(
     Returns:
         PcapSummaryResult with capture statistics and summary
     """
+    allowed, resolved_path, error = _guard_pcap_path(file_path)
+    if not allowed:
+        return PcapSummaryResult(
+            success=False,
+            file_path=file_path,
+            packet_count=0,
+            summary=f"Access denied: {error}",
+        )
+    file_path = resolved_path
+
     if not os.path.exists(file_path):
         return PcapSummaryResult(
             success=False,
@@ -225,6 +243,11 @@ def get_conversations(
     Returns:
         List of Conversation objects sorted by packet count
     """
+    allowed, resolved_path, _ = _guard_pcap_path(file_path)
+    if not allowed:
+        return []
+    file_path = resolved_path
+
     try:
         packets = rdpcap(file_path, count=max_packets)
     except Exception:
@@ -324,6 +347,18 @@ def find_tcp_issues(
     Returns:
         TcpIssuesResult with categorized issues and recommendations
     """
+    allowed, resolved_path, error = _guard_pcap_path(file_path)
+    if not allowed:
+        return TcpIssuesResult(
+            success=False,
+            file_path=file_path,
+            total_tcp_packets=0,
+            issues=[],
+            has_issues=False,
+            summary=f"Access denied: {error}",
+        )
+    file_path = resolved_path
+
     if not os.path.exists(file_path):
         return TcpIssuesResult(
             success=False,
@@ -479,6 +514,19 @@ def analyze_dns_traffic(
     Returns:
         DnsAnalysisResult with DNS traffic analysis
     """
+    allowed, resolved_path, error = _guard_pcap_path(file_path)
+    if not allowed:
+        return DnsAnalysisResult(
+            success=False,
+            file_path=file_path,
+            total_dns_packets=0,
+            total_queries=0,
+            total_responses=0,
+            unique_domains=0,
+            summary=f"Access denied: {error}",
+        )
+    file_path = resolved_path
+
     if not os.path.exists(file_path):
         return DnsAnalysisResult(
             success=False,
@@ -633,6 +681,19 @@ def filter_packets(
     Returns:
         FilterPacketsResult with matching packets
     """
+    allowed, resolved_path, error = _guard_pcap_path(file_path)
+    if not allowed:
+        return FilterPacketsResult(
+            success=False,
+            file_path=file_path,
+            filter_expression="",
+            total_packets_scanned=0,
+            matching_packets=0,
+            packets=[],
+            summary=f"Access denied: {error}",
+        )
+    file_path = resolved_path
+
     if not os.path.exists(file_path):
         return FilterPacketsResult(
             success=False,
@@ -795,6 +856,18 @@ def get_protocol_hierarchy(
     Returns:
         ProtocolHierarchyResult with protocol statistics
     """
+    allowed, resolved_path, error = _guard_pcap_path(file_path)
+    if not allowed:
+        return ProtocolHierarchyResult(
+            success=False,
+            file_path=file_path,
+            total_packets=0,
+            total_bytes=0,
+            hierarchy={},
+            summary=f"Access denied: {error}",
+        )
+    file_path = resolved_path
+
     if not os.path.exists(file_path):
         return ProtocolHierarchyResult(
             success=False,
@@ -896,6 +969,20 @@ def custom_scapy_filter(
     Returns:
         CustomFilterResult with matching packets
     """
+    allowed, resolved_path, error = _guard_pcap_path(file_path)
+    if not allowed:
+        return CustomFilterResult(
+            success=False,
+            file_path=file_path,
+            filter_expression=filter_expression,
+            total_packets_scanned=0,
+            matching_packets=0,
+            packets=[],
+            error=f"Access denied: {error}",
+            summary=f"Access denied: {error}",
+        )
+    file_path = resolved_path
+
     # Validate the filter expression for safety
     is_valid, error_msg = validate_scapy_filter(filter_expression)
     if not is_valid:
@@ -941,14 +1028,15 @@ def custom_scapy_filter(
             summary=f"Failed to read pcap file: {str(e)}",
         )
 
-    # Build a safe filter function from the expression
-    # We create a restricted namespace for evaluation
+    # Build a safe filter function from the expression (AST-validated)
     def create_filter_func(expr: str):
-        """Create a filter function from the expression."""
-        # Normalize common patterns
+        """Create a safe filter function from a restricted expression language."""
         expr = expr.strip()
 
-        # Safe namespace with only allowed scapy types
+        # Support shorthand like "IP.ttl < 64" -> "pkt[IP].ttl < 64"
+        expr = re.sub(r"\b(packet)\b", "pkt", expr)
+        expr = re.sub(r"\b(IP|TCP|UDP|ICMP|DNS)\.([A-Za-z_]\w*)\b", r"pkt[\1].\2", expr)
+
         safe_namespace = {
             "TCP": TCP,
             "UDP": UDP,
@@ -962,45 +1050,80 @@ def custom_scapy_filter(
             "False": False,
         }
 
+        allowed_names = set(safe_namespace.keys()) | {"pkt"}
+
+        allowed_nodes = (
+            ast.Expression,
+            ast.BoolOp,
+            ast.BinOp,
+            ast.UnaryOp,
+            ast.Compare,
+            ast.Call,
+            ast.Name,
+            ast.Load,
+            ast.Constant,
+            ast.Subscript,
+            ast.Attribute,
+            ast.List,
+            ast.Tuple,
+            ast.Slice,
+            ast.And,
+            ast.Or,
+            ast.Not,
+            ast.In,
+            ast.NotIn,
+            ast.Eq,
+            ast.NotEq,
+            ast.Lt,
+            ast.LtE,
+            ast.Gt,
+            ast.GtE,
+            ast.Is,
+            ast.IsNot,
+            ast.Add,
+            ast.Sub,
+            ast.Mult,
+            ast.Div,
+            ast.Mod,
+        )
+
+        class Validator(ast.NodeVisitor):
+            def generic_visit(self, node):
+                if not isinstance(node, allowed_nodes):
+                    raise ValueError(f"Unsupported syntax: {type(node).__name__}")
+                super().generic_visit(node)
+
+            def visit_Name(self, node: ast.Name):
+                if node.id not in allowed_names:
+                    raise ValueError(f"Unknown/blocked name: {node.id}")
+
+            def visit_Call(self, node: ast.Call):
+                # Only allow:
+                # - len(<expr>)
+                # - pkt.haslayer(<Layer>)
+                if isinstance(node.func, ast.Name) and node.func.id == "len":
+                    if len(node.args) != 1 or node.keywords:
+                        raise ValueError("len() must have exactly one positional argument")
+                elif isinstance(node.func, ast.Attribute) and node.func.attr == "haslayer":
+                    if not (isinstance(node.func.value, ast.Name) and node.func.value.id == "pkt"):
+                        raise ValueError("haslayer() must be called as pkt.haslayer(...)")
+                    if len(node.args) != 1 or node.keywords:
+                        raise ValueError("pkt.haslayer() must have exactly one positional argument")
+                else:
+                    raise ValueError("Only len(...) and pkt.haslayer(...) calls are allowed")
+                self.generic_visit(node)
+
+        tree = ast.parse(expr, mode="eval")
+        Validator().visit(tree)
+        code = compile(tree, "<custom_scapy_filter>", "eval")
+
         def filter_func(pkt):
-            # Add packet to namespace
             local_ns = safe_namespace.copy()
             local_ns["pkt"] = pkt
-            local_ns["packet"] = pkt
-
-            # Handle layer checks like "TCP in pkt" or "pkt.haslayer(TCP)"
-            # Common patterns to support:
-            # - "TCP in pkt" -> check if layer exists
-            # - "pkt[TCP].dport == 80" -> access layer field
-            # - "IP.dst == '10.0.0.1'" -> shorthand for pkt[IP].dst
-
             try:
-                # Try direct evaluation with packet context
-                result = eval(expr, {"__builtins__": {}}, local_ns)
-                return bool(result)
+                return bool(eval(code, {"__builtins__": {}}, local_ns))
             except Exception:
-                # Try common transformations
-                transformed = expr
-
-                # Handle "X in pkt" pattern
-                for layer_name in ["TCP", "UDP", "IP", "ICMP", "DNS"]:
-                    transformed = transformed.replace(
-                        f"{layer_name} in pkt",
-                        f"pkt.haslayer({layer_name})"
-                    )
-                    transformed = transformed.replace(
-                        f"{layer_name} in packet",
-                        f"pkt.haslayer({layer_name})"
-                    )
-
-                # Add pkt.haslayer method to namespace
-                local_ns["pkt"] = pkt
-
-                try:
-                    result = eval(transformed, {"__builtins__": {}}, local_ns)
-                    return bool(result)
-                except Exception:
-                    return False
+                return False
 
         return filter_func
 

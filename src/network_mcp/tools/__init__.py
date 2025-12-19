@@ -26,8 +26,15 @@ from network_mcp.tools.pcap import (
     get_protocol_hierarchy,
     pcap_summary,
 )
+from network_mcp.tools.capabilities import capabilities
+from network_mcp.tools.external_intel import asn_lookup, rdap_lookup
 
 __all__ = [
+    # Diagnostics
+    "capabilities",
+    # External intel
+    "rdap_lookup",
+    "asn_lookup",
     # Connectivity tools
     "ping",
     "traceroute",

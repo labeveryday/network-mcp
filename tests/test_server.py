@@ -17,6 +17,11 @@ class TestServerSetup:
         tools = list(mcp._tool_manager._tools.keys())
 
         expected_tools = [
+            # Diagnostics
+            "capabilities",
+            # External intel
+            "rdap_lookup",
+            "asn_lookup",
             # Connectivity tools
             "ping",
             "traceroute",
@@ -50,7 +55,7 @@ class TestServerSetup:
     def test_tool_count(self):
         """Test expected number of tools."""
         tools = list(mcp._tool_manager._tools.keys())
-        assert len(tools) == 21, f"Expected 21 tools, got {len(tools)}: {tools}"
+        assert len(tools) == 24, f"Expected 24 tools, got {len(tools)}: {tools}"
 
 
 class TestToolImports:
@@ -107,6 +112,7 @@ class TestToolImports:
     def test_model_imports(self):
         """Test model imports."""
         from network_mcp.models.responses import (
+            CapabilitiesResult,
             PingResult,
             TracerouteResult,
             DnsLookupResult,

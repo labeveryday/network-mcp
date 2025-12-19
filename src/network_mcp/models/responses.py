@@ -127,6 +127,74 @@ class MtrResult(BaseModel):
     reached_destination: bool = Field(description="Whether the final destination was reached")
     issues_detected: list[str] = Field(default_factory=list, description="Issues detected (high loss, latency spikes)")
     summary: str = Field(description="Human-readable summary for the LLM")
+    # Optional structured error metadata for automation (e.g., missing dependency, blocked by policy)
+    error_type: str | None = Field(default=None, description="Machine-readable error type")
+    suggestion: str | None = Field(default=None, description="Suggested action to resolve the error")
+    fallback: dict | None = Field(
+        default=None,
+        description="Optional fallback payload (e.g., traceroute/ping results) when MTR isn't available",
+    )
+
+
+# =============================================================================
+# Capabilities / Diagnostics Models
+# =============================================================================
+
+
+class DependencyStatus(BaseModel):
+    """Represents whether a given system dependency is available."""
+
+    name: str = Field(description="Dependency name (e.g., 'mtr')")
+    available: bool = Field(description="Whether dependency is available")
+    path: str | None = Field(default=None, description="Resolved path to executable if available")
+    note: str | None = Field(default=None, description="Optional note about usage/installation")
+
+
+class CapabilitiesResult(BaseModel):
+    """High-level runtime capabilities so agents can plan tool usage."""
+
+    success: bool = Field(description="Whether capability detection completed successfully")
+    server_version: str = Field(description="network-mcp version")
+    platform: str = Field(description="Platform identifier (e.g., darwin/linux/windows)")
+    python_version: str = Field(description="Python runtime version")
+    dependencies: list[DependencyStatus] = Field(default_factory=list, description="Dependency statuses")
+    security: dict = Field(default_factory=dict, description="Active security policy summary")
+    pcap: dict = Field(default_factory=dict, description="Active pcap policy summary")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class RdapLookupResult(BaseModel):
+    """Result from RDAP lookup (WHOIS-like)."""
+
+    success: bool = Field(description="Whether lookup completed successfully")
+    query: str = Field(description="Domain or IP queried")
+    query_type: str = Field(description="ip or domain")
+    rdap_url: str | None = Field(default=None, description="RDAP URL used")
+    handle: str | None = Field(default=None, description="RDAP handle")
+    name: str | None = Field(default=None, description="Name/description of the object")
+    country: str | None = Field(default=None, description="Country code if available")
+    start_address: str | None = Field(default=None, description="For IP queries: start of range")
+    end_address: str | None = Field(default=None, description="For IP queries: end of range")
+    asn_hint: str | None = Field(default=None, description="Optional ASN hint if present in RDAP")
+    summary: str = Field(description="Human-readable summary for the LLM")
+    error_type: str | None = Field(default=None, description="Machine-readable error type")
+    suggestion: str | None = Field(default=None, description="Suggested action to resolve the error")
+
+
+class AsnLookupResult(BaseModel):
+    """Result from ASN lookup for an IP."""
+
+    success: bool = Field(description="Whether lookup completed successfully")
+    ip: str = Field(description="IP address queried")
+    asn: str | None = Field(default=None, description="Origin ASN")
+    prefix: str | None = Field(default=None, description="Origin prefix")
+    country: str | None = Field(default=None, description="Country code")
+    registry: str | None = Field(default=None, description="Registry (e.g., arin, ripencc)")
+    allocated: str | None = Field(default=None, description="Allocation date if available")
+    as_name: str | None = Field(default=None, description="ASN name/description")
+    summary: str = Field(description="Human-readable summary for the LLM")
+    error_type: str | None = Field(default=None, description="Machine-readable error type")
+    suggestion: str | None = Field(default=None, description="Suggested action to resolve the error")
 
 
 # =============================================================================

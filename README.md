@@ -6,14 +6,19 @@ A Model Context Protocol (MCP) server providing network diagnostic tools for AI 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+<p align="center">
+  <img src="docs/architecture.svg" alt="Network MCP Architecture" width="800"/>
+</p>
+
 ## Features
 
 - **Connectivity Testing**: ping, traceroute, DNS lookups, port checks, MTR
 - **Batch Operations**: Test multiple hosts/ports concurrently
 - **Local Network Info**: Get interfaces, routes, DNS config, ARP table, connections (cross-platform)
 - **Pcap Analysis**: Analyze packet captures with scapy (no tshark required)
-- **Custom Filters**: Execute scapy filter expressions for advanced queries
-- **Security Controls**: Configurable allowlist/blocklist for target validation
+- **Custom Filters**: Execute scapy filter expressions for advanced queries (AST-validated)
+- **Security Controls**: Configurable allowlist/blocklist for target validation (enforced on connectivity tools)
+- **PCAP Path Guardrails**: Restrict which directories the server is allowed to read captures from
 - **Smart Summaries**: Returns human-readable summaries plus structured data
 
 ## Installation
@@ -45,6 +50,19 @@ python -m network_mcp.server
 ```
 
 ## Available Tools
+
+### Diagnostics
+
+| Tool | Description |
+|------|-------------|
+| `capabilities` | Report runtime capabilities (installed binaries like `mtr`, active security policy, pcap path guardrails) so agents can plan tool usage |
+
+### External Intel
+
+| Tool | Description |
+|------|-------------|
+| `rdap_lookup` | WHOIS-style lookup using RDAP for domains and IPs |
+| `asn_lookup` | Origin ASN lookup for an IP (BGP origin intel) |
 
 ### Connectivity Tools
 
@@ -222,6 +240,38 @@ If you installed with uv:
 }
 ```
 
+### RDAP Lookup (WHOIS-style)
+
+```json
+{
+  "success": true,
+  "query": "1.1.1.1",
+  "query_type": "ip",
+  "rdap_url": "https://rdap.org/ip/1.1.1.1",
+  "handle": "NET-1-1-1-0-1",
+  "country": "AU",
+  "start_address": "1.1.1.0",
+  "end_address": "1.1.1.255",
+  "summary": "RDAP 1.1.1.1: 1.1.1.0–1.1.1.255 (AU), handle NET-1-1-1-0-1"
+}
+```
+
+### ASN Lookup
+
+```json
+{
+  "success": true,
+  "ip": "1.1.1.1",
+  "asn": "13335",
+  "prefix": "1.1.1.0/24",
+  "country": "AU",
+  "registry": "apnic",
+  "allocated": "2011-08-11",
+  "as_name": "CLOUDFLARENET",
+  "summary": "1.1.1.1 originates from AS13335 (CLOUDFLARENET), prefix 1.1.1.0/24"
+}
+```
+
 ## Configuration
 
 Create `config.yaml` in your working directory or `~/.network-mcp/config.yaml`:
@@ -249,6 +299,12 @@ security:
 pcap:
   max_packets: 100000
   allow_custom_filters: true
+  # Restrict which directories the server is allowed to read pcaps from.
+  # (Paths are resolved before checking.)
+  allowed_paths:
+    - "."
+    - "~/Documents"
+    - "/tmp"
 ```
 
 Environment variables:
@@ -258,6 +314,7 @@ NETWORK_MCP_ALLOWED_TARGETS="*.company.com,10.0.0.0/8"
 NETWORK_MCP_BLOCKED_TARGETS="*.gov,localhost"
 NETWORK_MCP_BLOCK_PRIVATE="true"
 NETWORK_MCP_MAX_PACKETS="50000"
+NETWORK_MCP_PCAP_ALLOWED_PATHS=".,/tmp"
 ```
 
 ## Why MCP for Network Tools?
@@ -276,8 +333,11 @@ git clone https://github.com/yourusername/network-mcp.git
 cd network-mcp
 pip install -e ".[dev]"
 
-# Run tests
+# Run unit tests (integration tests are skipped by default)
 pytest
+
+# Run integration tests (requires system tools and/or network access)
+pytest -m integration
 
 # Run linting
 ruff check .

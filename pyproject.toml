@@ -58,9 +58,7 @@ ignore = ["E501"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-# Skip integration tests by default (they require network access)
-# Run with: pytest -m integration  OR  pytest --run-integration
 addopts = "-m 'not integration'"
 markers = [
-    "integration: tests that require network access (skip by default, run with -m integration or --run-integration)",
+    "integration: requires network access and/or platform system tools",
 ]

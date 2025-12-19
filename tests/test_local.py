@@ -17,6 +17,7 @@ from network_mcp.tools.local import (
 class TestGetInterfaces:
     """Tests for get_interfaces tool."""
 
+    @pytest.mark.integration
     def test_get_interfaces_success(self):
         """Test getting network interfaces returns valid result."""
         result = get_interfaces()
@@ -25,6 +26,7 @@ class TestGetInterfaces:
         assert len(result.interfaces) >= 0
         assert "summary" in result.model_dump()
 
+    @pytest.mark.integration
     def test_get_interfaces_has_loopback(self):
         """Test that loopback interface is typically present."""
         result = get_interfaces()
@@ -38,6 +40,7 @@ class TestGetInterfaces:
             # loopback may not always be present in output
             assert result.success is True
 
+    @pytest.mark.integration
     def test_get_interfaces_structure(self):
         """Test interface structure has expected fields."""
         result = get_interfaces()
@@ -53,6 +56,7 @@ class TestGetInterfaces:
 class TestGetRoutes:
     """Tests for get_routes tool."""
 
+    @pytest.mark.integration
     def test_get_routes_success(self):
         """Test getting routing table returns valid result."""
         result = get_routes()
@@ -60,6 +64,7 @@ class TestGetRoutes:
         assert isinstance(result.routes, list)
         assert "summary" in result.model_dump()
 
+    @pytest.mark.integration
     def test_get_routes_has_default(self):
         """Test that default gateway is typically found."""
         result = get_routes()
@@ -68,6 +73,7 @@ class TestGetRoutes:
             # Just check that result is valid
             assert result.success is True
 
+    @pytest.mark.integration
     def test_get_routes_structure(self):
         """Test route structure has expected fields."""
         result = get_routes()
@@ -81,6 +87,7 @@ class TestGetRoutes:
 class TestGetDnsConfig:
     """Tests for get_dns_config tool."""
 
+    @pytest.mark.integration
     def test_get_dns_config_success(self):
         """Test getting DNS config returns valid result."""
         result = get_dns_config()
@@ -89,6 +96,7 @@ class TestGetDnsConfig:
         assert isinstance(result.search_domains, list)
         assert "summary" in result.model_dump()
 
+    @pytest.mark.integration
     def test_get_dns_config_has_nameservers(self):
         """Test that nameservers are typically found."""
         result = get_dns_config()
@@ -101,6 +109,7 @@ class TestGetDnsConfig:
 class TestGetArpTable:
     """Tests for get_arp_table tool."""
 
+    @pytest.mark.integration
     def test_get_arp_table_success(self):
         """Test getting ARP table returns valid result."""
         result = get_arp_table()
@@ -108,6 +117,7 @@ class TestGetArpTable:
         assert isinstance(result.entries, list)
         assert "summary" in result.model_dump()
 
+    @pytest.mark.integration
     def test_get_arp_table_structure(self):
         """Test ARP entry structure has expected fields."""
         result = get_arp_table()
@@ -121,6 +131,7 @@ class TestGetArpTable:
 class TestGetConnections:
     """Tests for get_connections tool."""
 
+    @pytest.mark.integration
     def test_get_connections_success(self):
         """Test getting connections returns valid result."""
         result = get_connections()
@@ -130,6 +141,7 @@ class TestGetConnections:
         assert isinstance(result.established_count, int)
         assert "summary" in result.model_dump()
 
+    @pytest.mark.integration
     def test_get_connections_filter_tcp(self):
         """Test filtering connections by TCP protocol."""
         result = get_connections(protocol="tcp")
@@ -138,6 +150,7 @@ class TestGetConnections:
             for conn in result.connections:
                 assert conn.protocol.lower() == "tcp"
 
+    @pytest.mark.integration
     def test_get_connections_filter_udp(self):
         """Test filtering connections by UDP protocol."""
         result = get_connections(protocol="udp")
@@ -146,6 +159,7 @@ class TestGetConnections:
             for conn in result.connections:
                 assert conn.protocol.lower() == "udp"
 
+    @pytest.mark.integration
     def test_get_connections_filter_state(self):
         """Test filtering connections by state."""
         result = get_connections(state="LISTEN")
@@ -156,6 +170,7 @@ class TestGetConnections:
                 if conn.state:
                     assert "LISTEN" in conn.state.upper()
 
+    @pytest.mark.integration
     def test_get_connections_structure(self):
         """Test connection structure has expected fields."""
         result = get_connections()
