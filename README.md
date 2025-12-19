@@ -7,7 +7,7 @@ A Model Context Protocol (MCP) server providing network diagnostic tools for AI 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <p align="center">
-  <img src="docs/architecture.png" alt="Network MCP Architecture" width="800"/>
+  <img src="https://raw.githubusercontent.com/labeveryday/network-mcp/main/docs/architecture.png" alt="Network MCP Architecture" width="800"/>
 </p>
 
 ## Features
