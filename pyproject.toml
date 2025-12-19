@@ -1,0 +1,66 @@
+[project]
+name = "network-mcp"
+version = "0.1.0"
+description = "Network MCP Server for AI Agents - Connectivity testing and pcap analysis"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Network MCP Contributors" }
+]
+keywords = ["mcp", "network", "pcap", "ping", "traceroute", "agentcore"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Networking",
+    "Topic :: System :: Networking :: Monitoring",
+]
+
+dependencies = [
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+    "scapy>=2.5.0",
+    "dnspython>=2.4.0",
+    "pyyaml>=6.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+network-mcp = "network_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/network_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Skip integration tests by default (they require network access)
+# Run with: pytest -m integration  OR  pytest --run-integration
+addopts = "-m 'not integration'"
+markers = [
+    "integration: tests that require network access (skip by default, run with -m integration or --run-integration)",
+]

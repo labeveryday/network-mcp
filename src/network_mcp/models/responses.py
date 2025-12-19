@@ -1,0 +1,439 @@
+"""Pydantic models for structured MCP tool responses.
+
+All models include a 'summary' field with human-readable text for LLM consumption,
+plus structured data for programmatic use.
+"""
+
+from pydantic import BaseModel, Field
+
+
+# =============================================================================
+# Common Models
+# =============================================================================
+
+
+class ErrorResponse(BaseModel):
+    """Structured error response."""
+
+    success: bool = False
+    error_type: str = Field(description="Type of error (e.g., 'timeout', 'unreachable', 'invalid_input')")
+    message: str = Field(description="Human-readable error message")
+    suggestion: str | None = Field(default=None, description="Suggested action to resolve the error")
+
+
+# =============================================================================
+# Connectivity Tool Models
+# =============================================================================
+
+
+class PingResult(BaseModel):
+    """Result from ping tool."""
+
+    success: bool = Field(description="Whether ping was successful (at least one reply received)")
+    target: str = Field(description="Target hostname or IP address")
+    resolved_ip: str | None = Field(default=None, description="Resolved IP address if target was hostname")
+    packets_sent: int = Field(description="Number of ICMP packets sent")
+    packets_received: int = Field(description="Number of ICMP replies received")
+    packet_loss_percent: float = Field(description="Percentage of packets lost (0-100)")
+    min_latency_ms: float | None = Field(default=None, description="Minimum round-trip time in milliseconds")
+    avg_latency_ms: float | None = Field(default=None, description="Average round-trip time in milliseconds")
+    max_latency_ms: float | None = Field(default=None, description="Maximum round-trip time in milliseconds")
+    stddev_latency_ms: float | None = Field(default=None, description="Standard deviation of RTT in milliseconds")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class TracerouteHop(BaseModel):
+    """A single hop in a traceroute."""
+
+    hop_number: int = Field(description="Hop number (1-based)")
+    ip_address: str | None = Field(default=None, description="IP address of the hop (None if timeout)")
+    hostname: str | None = Field(default=None, description="Reverse DNS hostname if available")
+    latency_ms: list[float] = Field(default_factory=list, description="RTT measurements for this hop")
+    avg_latency_ms: float | None = Field(default=None, description="Average latency for this hop")
+    packet_loss: bool = Field(default=False, description="Whether any probes timed out at this hop")
+    is_destination: bool = Field(default=False, description="Whether this hop is the final destination")
+
+
+class TracerouteResult(BaseModel):
+    """Result from traceroute tool."""
+
+    success: bool = Field(description="Whether traceroute completed successfully")
+    target: str = Field(description="Target hostname or IP address")
+    resolved_ip: str | None = Field(default=None, description="Resolved IP address if target was hostname")
+    hops: list[TracerouteHop] = Field(default_factory=list, description="List of hops along the path")
+    reached_destination: bool = Field(description="Whether the final destination was reached")
+    total_hops: int = Field(description="Total number of hops to destination or max hops reached")
+    issues_detected: list[str] = Field(default_factory=list, description="Any issues detected (high latency hops, packet loss)")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class DnsRecord(BaseModel):
+    """A DNS record."""
+
+    record_type: str = Field(description="DNS record type (A, AAAA, CNAME, MX, TXT, etc.)")
+    value: str = Field(description="Record value")
+    ttl: int | None = Field(default=None, description="Time to live in seconds")
+    priority: int | None = Field(default=None, description="Priority for MX records")
+
+
+class DnsLookupResult(BaseModel):
+    """Result from DNS lookup tool."""
+
+    success: bool = Field(description="Whether DNS lookup was successful")
+    query: str = Field(description="The queried hostname or IP")
+    query_type: str = Field(description="Type of query performed (forward or reverse)")
+    records: list[DnsRecord] = Field(default_factory=list, description="DNS records found")
+    response_time_ms: float | None = Field(default=None, description="DNS response time in milliseconds")
+    nameserver: str | None = Field(default=None, description="Nameserver used for query")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class PortCheckResult(BaseModel):
+    """Result from port check tool."""
+
+    success: bool = Field(description="Whether the port check completed (not whether port is open)")
+    target: str = Field(description="Target hostname or IP address")
+    port: int = Field(description="Port number checked")
+    is_open: bool = Field(description="Whether the port is open and accepting connections")
+    response_time_ms: float | None = Field(default=None, description="Connection time in milliseconds")
+    banner: str | None = Field(default=None, description="Service banner if available")
+    service_hint: str | None = Field(default=None, description="Guessed service based on port/banner")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class MtrHop(BaseModel):
+    """A single hop in an MTR report."""
+
+    hop_number: int = Field(description="Hop number (1-based)")
+    ip_address: str | None = Field(default=None, description="IP address of the hop")
+    hostname: str | None = Field(default=None, description="Reverse DNS hostname if available")
+    loss_percent: float = Field(description="Packet loss percentage at this hop")
+    sent: int = Field(description="Number of packets sent")
+    received: int = Field(description="Number of packets received")
+    best_ms: float | None = Field(default=None, description="Best (minimum) latency")
+    avg_ms: float | None = Field(default=None, description="Average latency")
+    worst_ms: float | None = Field(default=None, description="Worst (maximum) latency")
+    stddev_ms: float | None = Field(default=None, description="Standard deviation of latency")
+
+
+class MtrResult(BaseModel):
+    """Result from MTR tool."""
+
+    success: bool = Field(description="Whether MTR completed successfully")
+    target: str = Field(description="Target hostname or IP address")
+    resolved_ip: str | None = Field(default=None, description="Resolved IP address if target was hostname")
+    hops: list[MtrHop] = Field(default_factory=list, description="List of hops with statistics")
+    report_cycles: int = Field(description="Number of report cycles (pings per hop)")
+    reached_destination: bool = Field(description="Whether the final destination was reached")
+    issues_detected: list[str] = Field(default_factory=list, description="Issues detected (high loss, latency spikes)")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+# =============================================================================
+# Pcap Analysis Models
+# =============================================================================
+
+
+class Conversation(BaseModel):
+    """A network conversation/flow between two endpoints."""
+
+    src_ip: str = Field(description="Source IP address")
+    src_port: int | None = Field(default=None, description="Source port (if applicable)")
+    dst_ip: str = Field(description="Destination IP address")
+    dst_port: int | None = Field(default=None, description="Destination port (if applicable)")
+    protocol: str = Field(description="Protocol (TCP, UDP, ICMP, etc.)")
+    packets: int = Field(description="Number of packets in this conversation")
+    bytes: int = Field(description="Total bytes transferred")
+    start_time: float | None = Field(default=None, description="Start timestamp of conversation")
+    duration_seconds: float | None = Field(default=None, description="Duration of conversation in seconds")
+
+
+class TcpIssue(BaseModel):
+    """A TCP issue detected in packet capture."""
+
+    issue_type: str = Field(description="Type of issue (retransmission, reset, zero_window, out_of_order, dup_ack)")
+    count: int = Field(description="Number of occurrences")
+    affected_flows: list[str] = Field(default_factory=list, description="Flows affected (src:port -> dst:port)")
+    severity: str = Field(description="Severity level (low, medium, high)")
+    recommendation: str = Field(description="Recommendation to address the issue")
+
+
+class PcapSummaryResult(BaseModel):
+    """Summary result from pcap analysis."""
+
+    success: bool = Field(description="Whether pcap was successfully parsed")
+    file_path: str = Field(description="Path to the analyzed pcap file")
+    packet_count: int = Field(description="Total number of packets")
+    capture_duration_seconds: float | None = Field(default=None, description="Duration of capture")
+    start_time: str | None = Field(default=None, description="Capture start time")
+    end_time: str | None = Field(default=None, description="Capture end time")
+    file_size_bytes: int | None = Field(default=None, description="Size of pcap file")
+    protocols: dict[str, int] = Field(default_factory=dict, description="Protocol breakdown (protocol -> packet count)")
+    top_talkers: list[dict] = Field(default_factory=list, description="Top source IPs by packet count")
+    top_destinations: list[dict] = Field(default_factory=list, description="Top destination IPs by packet count")
+    unique_src_ips: int = Field(default=0, description="Number of unique source IPs")
+    unique_dst_ips: int = Field(default=0, description="Number of unique destination IPs")
+    tcp_issues_summary: dict[str, int] | None = Field(default=None, description="Summary of TCP issues if present")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class TcpIssuesResult(BaseModel):
+    """Result from TCP issues analysis."""
+
+    success: bool = Field(description="Whether analysis completed successfully")
+    file_path: str = Field(description="Path to the analyzed pcap file")
+    total_tcp_packets: int = Field(description="Total TCP packets analyzed")
+    issues: list[TcpIssue] = Field(default_factory=list, description="List of issues detected")
+    has_issues: bool = Field(description="Whether any issues were detected")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class DnsQuery(BaseModel):
+    """A DNS query from the capture."""
+
+    query_name: str = Field(description="Queried domain name")
+    query_type: str = Field(description="Query type (A, AAAA, MX, etc.)")
+    response_code: str | None = Field(default=None, description="Response code if response found")
+    response_ips: list[str] = Field(default_factory=list, description="Response IP addresses")
+    response_time_ms: float | None = Field(default=None, description="Response time in milliseconds")
+    client_ip: str | None = Field(default=None, description="Client that made the query")
+
+
+class DnsAnalysisResult(BaseModel):
+    """Result from DNS traffic analysis."""
+
+    success: bool = Field(description="Whether analysis completed successfully")
+    file_path: str = Field(description="Path to the analyzed pcap file")
+    total_dns_packets: int = Field(description="Total DNS packets found")
+    total_queries: int = Field(description="Number of DNS queries")
+    total_responses: int = Field(description="Number of DNS responses")
+    unique_domains: int = Field(description="Number of unique domains queried")
+    top_queried_domains: list[dict] = Field(default_factory=list, description="Most frequently queried domains")
+    failed_queries: list[dict] = Field(default_factory=list, description="Queries that failed (NXDOMAIN, etc.)")
+    slow_queries: list[dict] = Field(default_factory=list, description="Queries with high latency")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class FilteredPacket(BaseModel):
+    """A packet matching filter criteria."""
+
+    packet_number: int = Field(description="Packet number in the capture")
+    timestamp: float = Field(description="Packet timestamp")
+    src_ip: str | None = Field(default=None, description="Source IP")
+    dst_ip: str | None = Field(default=None, description="Destination IP")
+    protocol: str = Field(description="Protocol")
+    length: int = Field(description="Packet length")
+    info: str = Field(description="Brief packet info/summary")
+
+
+class FilterPacketsResult(BaseModel):
+    """Result from packet filtering."""
+
+    success: bool = Field(description="Whether filtering completed successfully")
+    file_path: str = Field(description="Path to the analyzed pcap file")
+    filter_expression: str = Field(description="Filter expression used")
+    total_packets_scanned: int = Field(description="Total packets scanned")
+    matching_packets: int = Field(description="Number of packets matching filter")
+    packets: list[FilteredPacket] = Field(default_factory=list, description="Matching packets (limited)")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class ProtocolHierarchyResult(BaseModel):
+    """Result from protocol hierarchy analysis."""
+
+    success: bool = Field(description="Whether analysis completed successfully")
+    file_path: str = Field(description="Path to the analyzed pcap file")
+    total_packets: int = Field(description="Total packets analyzed")
+    total_bytes: int = Field(description="Total bytes in capture")
+    hierarchy: dict = Field(description="Protocol hierarchy tree with counts and percentages")
+    top_protocols: list[dict] = Field(default_factory=list, description="Top protocols by packet count")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class CustomFilterResult(BaseModel):
+    """Result from custom scapy filter execution."""
+
+    success: bool = Field(description="Whether filter execution completed successfully")
+    file_path: str = Field(description="Path to the analyzed pcap file")
+    filter_expression: str = Field(description="The scapy filter expression used")
+    total_packets_scanned: int = Field(description="Total packets scanned")
+    matching_packets: int = Field(description="Number of packets matching filter")
+    packets: list[FilteredPacket] = Field(default_factory=list, description="Matching packets (limited)")
+    error: str | None = Field(default=None, description="Error message if filter failed")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+# =============================================================================
+# Batch Operation Models
+# =============================================================================
+
+
+class BatchPingTargetResult(BaseModel):
+    """Result for a single target in a batch ping."""
+
+    target: str = Field(description="Target hostname or IP")
+    success: bool = Field(description="Whether ping was successful")
+    packets_sent: int = Field(default=0, description="Packets sent")
+    packets_received: int = Field(default=0, description="Packets received")
+    packet_loss_percent: float = Field(default=100.0, description="Packet loss percentage")
+    avg_latency_ms: float | None = Field(default=None, description="Average latency")
+    error: str | None = Field(default=None, description="Error message if failed")
+
+
+class BatchPingResult(BaseModel):
+    """Result from batch ping operation."""
+
+    success: bool = Field(description="Whether batch operation completed")
+    total_targets: int = Field(description="Total targets pinged")
+    successful: int = Field(description="Number of successful pings")
+    failed: int = Field(description="Number of failed pings")
+    results: list[BatchPingTargetResult] = Field(description="Individual target results")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class BatchPortResult(BaseModel):
+    """Result for a single port in a batch port check."""
+
+    port: int = Field(description="Port number")
+    is_open: bool = Field(description="Whether port is open")
+    response_time_ms: float | None = Field(default=None, description="Response time if open")
+    banner: str | None = Field(default=None, description="Service banner if available")
+    service_hint: str | None = Field(default=None, description="Guessed service name")
+
+
+class BatchPortCheckResult(BaseModel):
+    """Result from batch port check operation."""
+
+    success: bool = Field(description="Whether batch operation completed")
+    target: str = Field(description="Target hostname or IP")
+    total_ports: int = Field(description="Total ports checked")
+    open_ports: int = Field(description="Number of open ports")
+    closed_ports: int = Field(description="Number of closed ports")
+    results: list[BatchPortResult] = Field(description="Individual port results")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class BatchDnsTargetResult(BaseModel):
+    """Result for a single query in batch DNS lookup."""
+
+    query: str = Field(description="The queried hostname")
+    success: bool = Field(description="Whether lookup was successful")
+    records: list[DnsRecord] = Field(default_factory=list, description="Records found")
+    error: str | None = Field(default=None, description="Error message if failed")
+
+
+class BatchDnsResult(BaseModel):
+    """Result from batch DNS lookup operation."""
+
+    success: bool = Field(description="Whether batch operation completed")
+    record_type: str = Field(description="DNS record type queried")
+    total_queries: int = Field(description="Total queries made")
+    successful: int = Field(description="Number of successful lookups")
+    failed: int = Field(description="Number of failed lookups")
+    results: list[BatchDnsTargetResult] = Field(description="Individual query results")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+# =============================================================================
+# Local Network Info Models
+# =============================================================================
+
+
+class NetworkInterface(BaseModel):
+    """A network interface."""
+
+    name: str = Field(description="Interface name (e.g., eth0, en0, Ethernet)")
+    status: str = Field(description="Interface status (up, down)")
+    mac_address: str | None = Field(default=None, description="MAC address")
+    ipv4_addresses: list[str] = Field(default_factory=list, description="IPv4 addresses")
+    ipv6_addresses: list[str] = Field(default_factory=list, description="IPv6 addresses")
+    netmask: str | None = Field(default=None, description="Network mask")
+    broadcast: str | None = Field(default=None, description="Broadcast address")
+    mtu: int | None = Field(default=None, description="Maximum transmission unit")
+
+
+class InterfacesResult(BaseModel):
+    """Result from get_interfaces tool."""
+
+    success: bool = Field(description="Whether operation completed successfully")
+    interfaces: list[NetworkInterface] = Field(default_factory=list, description="List of network interfaces")
+    default_interface: str | None = Field(default=None, description="Name of default/primary interface")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class Route(BaseModel):
+    """A routing table entry."""
+
+    destination: str = Field(description="Destination network/host")
+    gateway: str | None = Field(default=None, description="Gateway address")
+    netmask: str | None = Field(default=None, description="Network mask")
+    interface: str | None = Field(default=None, description="Interface name")
+    metric: int | None = Field(default=None, description="Route metric")
+    flags: str | None = Field(default=None, description="Route flags")
+
+
+class RoutesResult(BaseModel):
+    """Result from get_routes tool."""
+
+    success: bool = Field(description="Whether operation completed successfully")
+    routes: list[Route] = Field(default_factory=list, description="List of routes")
+    default_gateway: str | None = Field(default=None, description="Default gateway address")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class DnsConfigResult(BaseModel):
+    """Result from get_dns_config tool."""
+
+    success: bool = Field(description="Whether operation completed successfully")
+    nameservers: list[str] = Field(default_factory=list, description="Configured DNS servers")
+    search_domains: list[str] = Field(default_factory=list, description="DNS search domains")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class ArpEntry(BaseModel):
+    """An ARP table entry."""
+
+    ip_address: str = Field(description="IP address")
+    mac_address: str | None = Field(default=None, description="MAC address")
+    interface: str | None = Field(default=None, description="Interface name")
+    state: str | None = Field(default=None, description="Entry state (e.g., REACHABLE, STALE)")
+
+
+class ArpTableResult(BaseModel):
+    """Result from get_arp_table tool."""
+
+    success: bool = Field(description="Whether operation completed successfully")
+    entries: list[ArpEntry] = Field(default_factory=list, description="ARP table entries")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class Connection(BaseModel):
+    """An active network connection."""
+
+    protocol: str = Field(description="Protocol (TCP, UDP)")
+    local_address: str = Field(description="Local address")
+    local_port: int = Field(description="Local port")
+    remote_address: str | None = Field(default=None, description="Remote address")
+    remote_port: int | None = Field(default=None, description="Remote port")
+    state: str | None = Field(default=None, description="Connection state (e.g., ESTABLISHED, LISTEN)")
+    pid: int | None = Field(default=None, description="Process ID")
+    process_name: str | None = Field(default=None, description="Process name")
+
+
+class ConnectionsResult(BaseModel):
+    """Result from get_connections tool."""
+
+    success: bool = Field(description="Whether operation completed successfully")
+    connections: list[Connection] = Field(default_factory=list, description="Active connections")
+    listening_count: int = Field(default=0, description="Number of listening ports")
+    established_count: int = Field(default=0, description="Number of established connections")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class PublicIpResult(BaseModel):
+    """Result from get_public_ip tool."""
+
+    success: bool = Field(description="Whether operation completed successfully")
+    public_ip: str | None = Field(default=None, description="Public/external IP address")
+    service_used: str | None = Field(default=None, description="Service used to determine public IP")
+    summary: str = Field(description="Human-readable summary for the LLM")
