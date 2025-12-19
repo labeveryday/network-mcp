@@ -216,6 +216,48 @@ class Conversation(BaseModel):
     duration_seconds: float | None = Field(default=None, description="Duration of conversation in seconds")
 
 
+class ThroughputConversation(BaseModel):
+    """Conversation augmented with observed throughput (Mbps) and directionality."""
+
+    # Dominant direction endpoints (where most bytes were observed)
+    src_ip: str = Field(description="Dominant-direction source IP address")
+    src_port: int | None = Field(default=None, description="Dominant-direction source port")
+    dst_ip: str = Field(description="Dominant-direction destination IP address")
+    dst_port: int | None = Field(default=None, description="Dominant-direction destination port")
+    protocol: str = Field(description="Protocol (TCP, UDP, ICMP, etc.)")
+
+    packets_total: int = Field(description="Total packets in both directions")
+    bytes_total: int = Field(description="Total bytes in both directions")
+
+    duration_seconds: float | None = Field(default=None, description="Conversation duration in seconds")
+    start_time: float | None = Field(default=None, description="Start timestamp")
+    end_time: float | None = Field(default=None, description="End timestamp")
+
+    # Per-direction counters relative to the dominant direction
+    packets_forward: int = Field(description="Packets in dominant direction (src -> dst)")
+    bytes_forward: int = Field(description="Bytes in dominant direction (src -> dst)")
+    packets_reverse: int = Field(description="Packets in reverse direction (dst -> src)")
+    bytes_reverse: int = Field(description="Bytes in reverse direction (dst -> src)")
+
+    mbps_forward: float | None = Field(default=None, description="Observed Mbps (src -> dst)")
+    mbps_reverse: float | None = Field(default=None, description="Observed Mbps (dst -> src)")
+    mbps_total: float | None = Field(default=None, description="Observed total Mbps (both directions)")
+
+    direction: str = Field(description="Dominant direction label, e.g. 'src:port -> dst:port'")
+
+
+class AnalyzeThroughputResult(BaseModel):
+    """Result from analyze_throughput tool."""
+
+    success: bool = Field(description="Whether analysis completed successfully")
+    file_path: str = Field(description="Path to the analyzed pcap file")
+    total_packets_scanned: int = Field(description="Total packets scanned")
+    conversations_analyzed: int = Field(description="Number of conversations analyzed")
+    top_n: int = Field(description="Number of conversations returned")
+    sort_by: str = Field(description="Sort key used (mbps_total or bytes_total)")
+    conversations: list[ThroughputConversation] = Field(default_factory=list, description="Top conversations")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
 class TcpIssue(BaseModel):
     """A TCP issue detected in packet capture."""
 

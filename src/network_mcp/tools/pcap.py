@@ -16,6 +16,7 @@ from scapy.layers.inet import ICMP
 
 from network_mcp.config import get_config, validate_pcap_file_path, validate_scapy_filter
 from network_mcp.models.responses import (
+    AnalyzeThroughputResult,
     Conversation,
     CustomFilterResult,
     DnsAnalysisResult,
@@ -25,6 +26,7 @@ from network_mcp.models.responses import (
     ProtocolHierarchyResult,
     TcpIssue,
     TcpIssuesResult,
+    ThroughputConversation,
 )
 
 
@@ -326,6 +328,214 @@ def get_conversations(
     # Sort by packet count and return top N
     result.sort(key=lambda c: c.packets, reverse=True)
     return result[:top_n]
+
+
+def analyze_throughput(
+    file_path: str,
+    max_packets: int = 100000,
+    top_n: int = 20,
+    sort_by: str = "mbps_total",
+) -> AnalyzeThroughputResult:
+    """Calculate observed throughput per conversation from a pcap.
+
+    This is an "observed" metric: it reports achieved throughput in the capture,
+    not theoretical available bandwidth.
+    """
+    allowed, resolved_path, error = _guard_pcap_path(file_path)
+    if not allowed:
+        return AnalyzeThroughputResult(
+            success=False,
+            file_path=file_path,
+            total_packets_scanned=0,
+            conversations_analyzed=0,
+            top_n=0,
+            sort_by=sort_by,
+            conversations=[],
+            summary=f"Access denied: {error}",
+        )
+    file_path = resolved_path
+
+    if not os.path.exists(file_path):
+        return AnalyzeThroughputResult(
+            success=False,
+            file_path=file_path,
+            total_packets_scanned=0,
+            conversations_analyzed=0,
+            top_n=0,
+            sort_by=sort_by,
+            conversations=[],
+            summary=f"File not found: {file_path}",
+        )
+
+    try:
+        packets = rdpcap(file_path, count=max_packets)
+    except Exception as e:
+        return AnalyzeThroughputResult(
+            success=False,
+            file_path=file_path,
+            total_packets_scanned=0,
+            conversations_analyzed=0,
+            top_n=0,
+            sort_by=sort_by,
+            conversations=[],
+            summary=f"Failed to read pcap file: {e}",
+        )
+
+    # Aggregate bidirectional conversations with per-direction byte counters.
+    convos = defaultdict(lambda: {
+        "packets_total": 0,
+        "bytes_total": 0,
+        "packets_ab": 0,
+        "bytes_ab": 0,
+        "packets_ba": 0,
+        "bytes_ba": 0,
+        "start_time": None,
+        "end_time": None,
+    })
+
+    for pkt in packets:
+        if IP not in pkt:
+            continue
+
+        src_ip = pkt[IP].src
+        dst_ip = pkt[IP].dst
+        proto = "IP"
+        src_port = None
+        dst_port = None
+
+        if TCP in pkt:
+            proto = "TCP"
+            src_port = int(pkt[TCP].sport)
+            dst_port = int(pkt[TCP].dport)
+        elif UDP in pkt:
+            proto = "UDP"
+            src_port = int(pkt[UDP].sport)
+            dst_port = int(pkt[UDP].dport)
+        elif ICMP in pkt:
+            proto = "ICMP"
+
+        if src_port is not None and dst_port is not None:
+            ep_a = (src_ip, src_port)
+            ep_b = (dst_ip, dst_port)
+        else:
+            ep_a = (src_ip, 0)
+            ep_b = (dst_ip, 0)
+
+        # Normalize ordering for stable conversation key.
+        a = ep_a
+        b = ep_b
+        if a > b:
+            a, b = b, a
+
+        key = (a, b, proto)
+        stats = convos[key]
+        stats["packets_total"] += 1
+        pkt_len = len(pkt)
+        stats["bytes_total"] += pkt_len
+
+        if ep_a == a and ep_b == b:
+            stats["packets_ab"] += 1
+            stats["bytes_ab"] += pkt_len
+        else:
+            stats["packets_ba"] += 1
+            stats["bytes_ba"] += pkt_len
+
+        if hasattr(pkt, "time"):
+            ts = float(pkt.time)
+            if stats["start_time"] is None or ts < stats["start_time"]:
+                stats["start_time"] = ts
+            if stats["end_time"] is None or ts > stats["end_time"]:
+                stats["end_time"] = ts
+
+    conversations: list[ThroughputConversation] = []
+    for (a, b, proto), s in convos.items():
+        start = s["start_time"]
+        end = s["end_time"]
+        duration = float(end - start) if (start is not None and end is not None and end >= start) else None
+        if duration is not None and duration <= 0:
+            duration = None
+
+        # Decide dominant direction by bytes.
+        if s["bytes_ab"] >= s["bytes_ba"]:
+            src = a
+            dst = b
+            bytes_f = s["bytes_ab"]
+            pkts_f = s["packets_ab"]
+            bytes_r = s["bytes_ba"]
+            pkts_r = s["packets_ba"]
+        else:
+            src = b
+            dst = a
+            bytes_f = s["bytes_ba"]
+            pkts_f = s["packets_ba"]
+            bytes_r = s["bytes_ab"]
+            pkts_r = s["packets_ab"]
+
+        def mbps(byte_count: int) -> float | None:
+            if duration is None:
+                return None
+            return round((byte_count * 8.0) / duration / 1_000_000.0, 3)
+
+        mbps_f = mbps(bytes_f)
+        mbps_r = mbps(bytes_r)
+        mbps_t = mbps(s["bytes_total"])
+
+        src_port = None if src[1] == 0 else src[1]
+        dst_port = None if dst[1] == 0 else dst[1]
+        direction = f"{src[0]}:{src_port or 0} -> {dst[0]}:{dst_port or 0}"
+
+        conversations.append(ThroughputConversation(
+            src_ip=src[0],
+            src_port=src_port,
+            dst_ip=dst[0],
+            dst_port=dst_port,
+            protocol=proto,
+            packets_total=s["packets_total"],
+            bytes_total=s["bytes_total"],
+            duration_seconds=duration,
+            start_time=start,
+            end_time=end,
+            packets_forward=pkts_f,
+            bytes_forward=bytes_f,
+            packets_reverse=pkts_r,
+            bytes_reverse=bytes_r,
+            mbps_forward=mbps_f,
+            mbps_reverse=mbps_r,
+            mbps_total=mbps_t,
+            direction=direction,
+        ))
+
+    sort_by_norm = sort_by.lower().strip()
+    if sort_by_norm not in {"mbps_total", "bytes_total"}:
+        sort_by_norm = "mbps_total"
+
+    if sort_by_norm == "mbps_total":
+        conversations.sort(key=lambda c: (c.mbps_total or 0.0, c.bytes_total), reverse=True)
+    else:
+        conversations.sort(key=lambda c: (c.bytes_total, c.packets_total), reverse=True)
+
+    top = conversations[: max(0, int(top_n))]
+
+    if top:
+        top0 = top[0]
+        if top0.mbps_total is not None and top0.duration_seconds is not None:
+            top_desc = f"Top flow {top0.direction} at ~{top0.mbps_total} Mbps over {top0.duration_seconds:.2f}s"
+        else:
+            top_desc = f"Top flow {top0.direction} ({top0.bytes_total} bytes)"
+        summary = f"Throughput analysis: {len(conversations)} conversations from {len(packets)} packets. {top_desc}"
+    else:
+        summary = f"Throughput analysis: 0 conversations from {len(packets)} packets"
+
+    return AnalyzeThroughputResult(
+        success=True,
+        file_path=file_path,
+        total_packets_scanned=len(packets),
+        conversations_analyzed=len(conversations),
+        top_n=len(top),
+        sort_by=sort_by_norm,
+        conversations=top,
+        summary=summary,
+    )
 
 
 def find_tcp_issues(
@@ -1085,6 +1295,11 @@ def custom_scapy_filter(
             ast.Mult,
             ast.Div,
             ast.Mod,
+            ast.BitAnd,
+            ast.BitOr,
+            ast.BitXor,
+            ast.LShift,
+            ast.RShift,
         )
 
         class Validator(ast.NodeVisitor):

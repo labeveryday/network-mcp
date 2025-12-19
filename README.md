@@ -7,7 +7,7 @@ A Model Context Protocol (MCP) server providing network diagnostic tools for AI 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 <p align="center">
-  <img src="docs/architecture.svg" alt="Network MCP Architecture" width="800"/>
+  <img src="docs/architecture.png" alt="Network MCP Architecture" width="800"/>
 </p>
 
 ## Features
@@ -48,6 +48,12 @@ Or with Python:
 ```bash
 python -m network_mcp.server
 ```
+
+Recommended first run (helps agents decide what’s safe/available on this host):
+
+- **Check capabilities**: call `capabilities` to see installed binaries (like `mtr`), active security policy, and PCAP path guardrails.
+- **Decide on policy**: if you need to loosen/tighten target validation or PCAP access, set env vars before launching.
+- **Run unit tests by default**: `pytest` skips integration tests unless you opt in (see Development).
 
 ## Available Tools
 
@@ -101,6 +107,7 @@ Cross-platform tools that work on Linux, macOS, and Windows.
 |------|-------------|
 | `pcap_summary` | High-level capture stats: packets, duration, protocols, top talkers |
 | `get_conversations` | Network flows/conversations between endpoints |
+| `analyze_throughput` | Observed throughput (Mbps) per conversation/flow, including dominant direction and duration |
 | `find_tcp_issues` | Detect retransmissions, resets, zero windows, dup ACKs |
 | `analyze_dns_traffic` | DNS queries, failures, slow responses |
 | `filter_packets` | Extract packets by IP, port, or protocol |
@@ -205,6 +212,42 @@ If you installed with uv:
   ],
   "has_issues": true,
   "summary": "TCP issues detected in 15234 packets: 47 retransmissions"
+}
+```
+
+### Throughput (from PCAP)
+
+```json
+{
+  "success": true,
+  "file_path": "/tmp/capture.pcap",
+  "total_packets_scanned": 100000,
+  "conversations_analyzed": 87,
+  "top_n": 3,
+  "sort_by": "mbps_total",
+  "conversations": [
+    {
+      "src_ip": "10.0.0.10",
+      "src_port": 51544,
+      "dst_ip": "93.184.216.34",
+      "dst_port": 443,
+      "protocol": "TCP",
+      "packets_total": 1240,
+      "bytes_total": 18423333,
+      "duration_seconds": 9.84,
+      "start_time": 1734567890.01,
+      "end_time": 1734567899.85,
+      "packets_forward": 820,
+      "bytes_forward": 17600000,
+      "packets_reverse": 420,
+      "bytes_reverse": 823333,
+      "mbps_forward": 14.308,
+      "mbps_reverse": 0.669,
+      "mbps_total": 14.977,
+      "direction": "10.0.0.10:51544 -> 93.184.216.34:443"
+    }
+  ],
+  "summary": "Throughput analysis: 87 conversations from 100000 packets. Top flow 10.0.0.10:51544 -> 93.184.216.34:443 at ~14.977 Mbps over 9.84s"
 }
 ```
 
@@ -314,7 +357,7 @@ NETWORK_MCP_ALLOWED_TARGETS="*.company.com,10.0.0.0/8"
 NETWORK_MCP_BLOCKED_TARGETS="*.gov,localhost"
 NETWORK_MCP_BLOCK_PRIVATE="true"
 NETWORK_MCP_MAX_PACKETS="50000"
-NETWORK_MCP_PCAP_ALLOWED_PATHS=".,/tmp"
+NETWORK_MCP_PCAP_ALLOWED_PATHS=".,~/Documents,/tmp"
 ```
 
 ## Why MCP for Network Tools?
@@ -329,7 +372,7 @@ NETWORK_MCP_PCAP_ALLOWED_PATHS=".,/tmp"
 
 ```bash
 # Clone and install dev dependencies
-git clone https://github.com/yourusername/network-mcp.git
+git clone https://github.com/labeveryday/network-mcp.git
 cd network-mcp
 pip install -e ".[dev]"
 

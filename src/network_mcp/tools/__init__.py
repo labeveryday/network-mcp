@@ -19,6 +19,7 @@ from network_mcp.tools.local import (
 )
 from network_mcp.tools.pcap import (
     analyze_dns_traffic,
+    analyze_throughput,
     custom_scapy_filter,
     filter_packets,
     find_tcp_issues,
@@ -54,6 +55,7 @@ __all__ = [
     # Pcap tools
     "pcap_summary",
     "get_conversations",
+    "analyze_throughput",
     "find_tcp_issues",
     "analyze_dns_traffic",
     "filter_packets",

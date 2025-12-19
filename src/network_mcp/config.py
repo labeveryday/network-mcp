@@ -382,7 +382,21 @@ def _validate_ast_safety(filter_expr: str) -> tuple[bool, str | None]:
             return False, f"Disallowed unary operator: {type(node.op).__name__}"
 
         elif isinstance(node, ast.BinOp):
-            # +, -, *, etc - only allow for numeric operations
+            # Restrict binary operators to safe numeric / bitwise operations.
+            allowed_ops = (
+                ast.Add,
+                ast.Sub,
+                ast.Mult,
+                ast.Div,
+                ast.Mod,
+                ast.BitAnd,
+                ast.BitOr,
+                ast.BitXor,
+                ast.LShift,
+                ast.RShift,
+            )
+            if not isinstance(node.op, allowed_ops):
+                return False, f"Disallowed binary operator: {type(node.op).__name__}"
             ok1, err1 = check_node(node.left)
             if not ok1:
                 return False, err1

@@ -4,6 +4,7 @@ import os
 import tempfile
 
 import pytest
+from scapy.all import IP, TCP, Raw, wrpcap
 
 from network_mcp.tools.pcap import (
     pcap_summary,
@@ -149,6 +150,22 @@ class TestCustomScapyFilter:
         result = custom_scapy_filter(allowed_missing, "import os")
         assert result.success is False
         assert "blocked" in result.summary.lower() or "rejected" in result.summary.lower()
+
+    def test_bitwise_filter_supported(self):
+        """Bitwise operations (e.g., TCP flags) should be supported."""
+        fd, path = tempfile.mkstemp(suffix=".pcap")
+        os.close(fd)
+        try:
+            # SYN packet (flags has 0x02 bit)
+            p = IP(src="10.0.0.1", dst="10.0.0.2") / TCP(sport=12345, dport=80, flags="S") / Raw(load=b"x")
+            p.time = 1.0
+            wrpcap(path, [p])
+
+            result = custom_scapy_filter(path, "pkt[TCP].flags & 0x02")
+            assert result.success is True
+            assert result.matching_packets >= 1
+        finally:
+            os.unlink(path)
 
     def test_result_structure(self):
         """Test that result has correct structure."""

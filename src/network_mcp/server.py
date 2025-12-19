@@ -31,6 +31,7 @@ from network_mcp.tools.external_intel import asn_lookup as _asn_lookup
 from network_mcp.tools.external_intel import rdap_lookup as _rdap_lookup
 from network_mcp.tools.pcap import (
     analyze_dns_traffic as _analyze_dns_traffic,
+    analyze_throughput as _analyze_throughput,
     custom_scapy_filter as _custom_scapy_filter,
     filter_packets as _filter_packets,
     find_tcp_issues as _find_tcp_issues,
@@ -533,6 +534,21 @@ def get_protocol_hierarchy(
         Protocol hierarchy with packet counts, bytes, and percentages
     """
     result = _get_protocol_hierarchy(file_path, max_packets=max_packets)
+    return result.model_dump()
+
+
+@mcp.tool()
+def analyze_throughput(
+    file_path: str,
+    max_packets: int = 100000,
+    top_n: int = 20,
+    sort_by: Literal["mbps_total", "bytes_total"] = "mbps_total",
+) -> dict:
+    """Calculate observed throughput per conversation (Mbps) from a pcap file.
+
+    This reports achieved throughput in the capture (not theoretical bandwidth).
+    """
+    result = _analyze_throughput(file_path, max_packets=max_packets, top_n=top_n, sort_by=sort_by)
     return result.model_dump()
 
 

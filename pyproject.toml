@@ -3,17 +3,31 @@ name = "network-mcp"
 version = "0.1.0"
 description = "Network MCP Server for AI Agents - Connectivity testing and pcap analysis"
 readme = "README.md"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 authors = [
-    { name = "Network MCP Contributors" }
+    { name = "Du'An Lightfoot" }
 ]
-keywords = ["mcp", "network", "pcap", "ping", "traceroute", "agentcore"]
+keywords = [
+    "mcp",
+    "network",
+    "networking",
+    "netops",
+    "pcap",
+    "scapy",
+    "ping",
+    "traceroute",
+    "dns",
+    "mtr",
+    "observability",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
     "Intended Audience :: System Administrators",
     "License :: OSI Approved :: MIT License",
+    "Environment :: Console",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -29,6 +43,11 @@ dependencies = [
     "dnspython>=2.4.0",
     "pyyaml>=6.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/labeveryday/network-mcp"
+Repository = "https://github.com/labeveryday/network-mcp"
+Issues = "https://github.com/labeveryday/network-mcp/issues"
 
 [project.optional-dependencies]
 dev = [

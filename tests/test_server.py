@@ -42,6 +42,7 @@ class TestServerSetup:
             # Pcap tools
             "pcap_summary",
             "get_conversations",
+            "analyze_throughput",
             "find_tcp_issues",
             "analyze_dns_traffic",
             "filter_packets",
@@ -55,7 +56,7 @@ class TestServerSetup:
     def test_tool_count(self):
         """Test expected number of tools."""
         tools = list(mcp._tool_manager._tools.keys())
-        assert len(tools) == 24, f"Expected 24 tools, got {len(tools)}: {tools}"
+        assert len(tools) == 25, f"Expected 25 tools, got {len(tools)}: {tools}"
 
 
 class TestToolImports:

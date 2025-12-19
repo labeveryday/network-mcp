@@ -122,6 +122,8 @@ class TestValidateScapyFilter:
             "pkt[TCP].sport == 443 and pkt[TCP].dport > 1024",
             "pkt[IP].src == '10.0.0.1'",
             "not pkt.haslayer(UDP)",
+            # Bitwise ops (common for TCP flags)
+            "pkt[TCP].flags & 0x02",
         ]
         for f in valid_filters:
             valid, msg = validate_scapy_filter(f)
