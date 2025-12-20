@@ -77,12 +77,146 @@ from network_mcp.tools.pcap import (
 from network_mcp.tools.pcap import (
     pcap_summary as _pcap_summary,
 )
+from network_mcp.tools.planning import (
+    check_overlaps as _check_overlaps,
+)
+from network_mcp.tools.planning import (
+    cidr_info as _cidr_info,
+)
+from network_mcp.tools.planning import (
+    cidr_summarize as _cidr_summarize,
+)
+from network_mcp.tools.planning import (
+    find_vlan_for_ip as _find_vlan_for_ip,
+)
+from network_mcp.tools.planning import (
+    ip_in_subnet as _ip_in_subnet,
+)
+from network_mcp.tools.planning import (
+    ip_in_vlan as _ip_in_vlan,
+)
+from network_mcp.tools.planning import (
+    plan_subnets as _plan_subnets,
+)
+from network_mcp.tools.planning import (
+    subnet_split as _subnet_split,
+)
+from network_mcp.tools.planning import (
+    validate_vlan_map as _validate_vlan_map,
+)
 
 # Create FastMCP server
 mcp = FastMCP(
     name="Network Tools",
     instructions="Network diagnostic tools for connectivity testing and pcap analysis. Use these tools to diagnose network issues, analyze packet captures, and verify connectivity.",
 )
+
+
+# =============================================================================
+# Planning Tools (Pure CIDR/VLAN math)
+# =============================================================================
+
+
+@mcp.tool()
+def cidr_info(cidr: str) -> dict:
+    """CIDR primitives (IPv4/IPv6): mask, wildcard, usable range, counts.
+
+    NOC use cases:
+    - Validate the mask math in a change ticket
+    - Quickly answer "what's the usable range for this VLAN subnet?"
+    """
+    result = _cidr_info(cidr)
+    return result.model_dump()
+
+
+@mcp.tool()
+def ip_in_subnet(ip: str, cidr: str) -> dict:
+    """Check if an IP is in a subnet and whether it is a usable host address.
+
+    NOC use cases:
+    - "Is this IP in this VLAN subnet?"
+    - Catch network/broadcast mistakes (/24 .0 / .255) quickly
+    """
+    result = _ip_in_subnet(ip, cidr)
+    return result.model_dump()
+
+
+@mcp.tool()
+def subnet_split(cidr: str, new_prefix: int | None = None, count: int | None = None) -> dict:
+    """Split a CIDR into equal-size child subnets (by new_prefix or power-of-two count)."""
+    result = _subnet_split(cidr, new_prefix=new_prefix, count=count)
+    return result.model_dump()
+
+
+@mcp.tool()
+def cidr_summarize(cidrs: list[str]) -> dict:
+    """Summarize/aggregate routes from a list of CIDRs (IPv4/IPv6 collapsed separately)."""
+    result = _cidr_summarize(cidrs)
+    return result.model_dump()
+
+
+@mcp.tool()
+def check_overlaps(cidrs: list[str]) -> dict:
+    """Detect overlaps/containment between CIDRs (high-leverage sanity check)."""
+    result = _check_overlaps(cidrs)
+    return result.model_dump()
+
+
+@mcp.tool()
+def validate_vlan_map(vlan_map: dict) -> dict:
+    """Validate a simple VLAN map (1 subnet per VLAN) and surface overlaps.
+
+    Input formats supported:
+    - Shorthand: {"10": "192.168.10.0/24"}
+    - Structured: {"10": {"cidr": "192.168.10.0/24", "name": "Management"}}
+    """
+    result = _validate_vlan_map(vlan_map)
+    return result.model_dump()
+
+
+@mcp.tool()
+def find_vlan_for_ip(ip: str, vlan_map: dict) -> dict:
+    """Find which VLAN subnet(s) match an IP in a provided VLAN map.
+
+    Tier 1 "hero tool":
+    - "What VLAN does this IP belong to?"
+
+    Example vlan_map:
+    {"10": "192.168.10.0/24", "20": {"cidr": "192.168.20.0/24", "name": "Voice"}}
+    """
+    result = _find_vlan_for_ip(ip, vlan_map)
+    return result.model_dump()
+
+
+@mcp.tool()
+def ip_in_vlan(ip: str, vlan_id: str | int, vlan_map: dict) -> dict:
+    """Check if an IP belongs to a VLAN (1 subnet per VLAN) using a provided VLAN map.
+
+    If it does NOT match, this tool will attempt a best-guess VLAN match to help Tier 1/2 triage.
+
+    Example vlan_map:
+    {"20": {"cidr": "10.10.20.0/24", "name": "Voice"}, "50": "10.10.50.0/24"}
+    """
+    result = _ip_in_vlan(ip, vlan_id, vlan_map)
+    return result.model_dump()
+
+
+@mcp.tool()
+def plan_subnets(parent_cidr: str, requirements: list[dict]) -> dict:
+    """Allocate VLAN subnets from a parent IPv4 block (deterministic, no network calls).
+
+    Each requirement is 1 subnet per VLAN. Use either hosts (alias: needed_hosts) OR prefix (alias: desired_prefix).
+
+    Example:
+    parent_cidr="10.0.0.0/23"
+    requirements=[
+      {"vlan_id": 10, "name": "Users", "hosts": 120},
+      {"vlan_id": 20, "name": "Voice", "hosts": 60},
+      {"vlan_id": 30, "name": "Printers", "prefix": 26},
+    ]
+    """
+    result = _plan_subnets(parent_cidr, requirements)
+    return result.model_dump()
 
 
 # =============================================================================

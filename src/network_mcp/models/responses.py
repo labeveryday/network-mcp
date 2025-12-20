@@ -4,7 +4,7 @@ All models include a 'summary' field with human-readable text for LLM consumptio
 plus structured data for programmatic use.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, model_validator
 
 # =============================================================================
 # Common Models
@@ -630,4 +630,220 @@ class PublicIpResult(BaseModel):
     service_used: str | None = Field(
         default=None, description="Service used to determine public IP"
     )
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+# =============================================================================
+# Planning / CIDR Math Models (Pure)
+# =============================================================================
+
+
+class CidrInfoResult(BaseModel):
+    """CIDR primitives (IPv4/IPv6)."""
+
+    success: bool = Field(description="Whether parsing succeeded")
+    cidr_input: str = Field(description="CIDR string provided by the caller")
+    cidr_normalized: str | None = Field(default=None, description="Normalized CIDR (strict=False)")
+    ip_version: int | None = Field(default=None, description="4 or 6")
+    prefix_length: int | None = Field(default=None, description="Prefix length")
+    network_address: str | None = Field(default=None, description="Network address")
+    broadcast_address: str | None = Field(default=None, description="Broadcast address (IPv4 only)")
+    netmask: str | None = Field(default=None, description="Netmask")
+    wildcard_mask: str | None = Field(default=None, description="Wildcard mask (IPv4 only)")
+    total_addresses: int | None = Field(default=None, description="Total addresses in prefix")
+    usable_host_addresses: int | None = Field(
+        default=None,
+        description="Usable host addresses (IPv4 excludes network/broadcast; /31 special)",
+    )
+    first_usable: str | None = Field(default=None, description="First usable address in range")
+    last_usable: str | None = Field(default=None, description="Last usable address in range")
+    notes: list[str] = Field(default_factory=list, description="Notes about semantics/edge cases")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class IpInSubnetResult(BaseModel):
+    """Check whether an IP is in a subnet and whether it's a usable host address."""
+
+    success: bool = Field(description="Whether parsing succeeded")
+    ip_input: str = Field(description="IP string provided by the caller")
+    ip_normalized: str | None = Field(default=None, description="Normalized IP")
+    cidr_input: str = Field(description="CIDR string provided by the caller")
+    cidr_normalized: str | None = Field(default=None, description="Normalized CIDR")
+    in_subnet: bool = Field(description="Whether the IP is in the subnet (range membership)")
+    is_usable_host: bool = Field(
+        description="Whether the IP is a usable host address (IPv4 excludes network/broadcast for /0-/30)"
+    )
+    reason_code: str = Field(description="Machine-readable reason code")
+    special_ip: str | None = Field(
+        default=None, description="If in_subnet but not usable: 'network' or 'broadcast'"
+    )
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class SubnetSplitResult(BaseModel):
+    """Split a parent CIDR into equal-size child subnets."""
+
+    success: bool = Field(description="Whether split succeeded")
+    parent_cidr: str = Field(description="Parent CIDR")
+    child_prefix: int | None = Field(default=None, description="Child prefix length")
+    count: int | None = Field(default=None, description="Number of child subnets returned")
+    subnets: list[str] = Field(default_factory=list, description="Child subnets")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class CidrSummarizeVersionResult(BaseModel):
+    """Summarization result for a single IP version."""
+
+    input_count: int = Field(description="How many valid CIDRs were provided for this version")
+    summarized: list[str] = Field(default_factory=list, description="Collapsed CIDRs")
+
+
+class CidrSummarizeResult(BaseModel):
+    """Aggregate and collapse CIDRs."""
+
+    success: bool = Field(description="Whether all CIDRs were valid")
+    input_cidrs: list[str] = Field(default_factory=list, description="Original input")
+    invalid_cidrs: list[str] = Field(default_factory=list, description="CIDRs ignored as invalid")
+    ipv4: CidrSummarizeVersionResult = Field(description="IPv4 summary")
+    ipv6: CidrSummarizeVersionResult = Field(description="IPv6 summary")
+    notes: list[str] = Field(default_factory=list, description="Notes about mixed inputs, etc.")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class OverlapConflict(BaseModel):
+    """Represents an overlap/containment relationship between two CIDRs."""
+
+    a: str = Field(description="First CIDR")
+    b: str = Field(description="Second CIDR")
+    relationship: str = Field(description="Relationship: equal|contains|contained_by|overlaps")
+    overlap_cidr: str | None = Field(
+        default=None,
+        description="The overlapped block when trivially representable (often the smaller CIDR)",
+    )
+
+
+class CheckOverlapsResult(BaseModel):
+    """Detect overlaps in a set of CIDRs."""
+
+    success: bool = Field(description="Whether all CIDRs were valid")
+    input_cidrs: list[str] = Field(default_factory=list, description="Original input")
+    invalid_cidrs: list[str] = Field(default_factory=list, description="CIDRs ignored as invalid")
+    overlaps: list[OverlapConflict] = Field(default_factory=list, description="Overlaps found")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class VlanMatch(BaseModel):
+    """A VLAN match for an IP (1 subnet per VLAN)."""
+
+    vlan_id: str = Field(description="VLAN ID")
+    name: str | None = Field(default=None, description="Optional VLAN name")
+    cidr: str = Field(description="VLAN subnet CIDR")
+
+
+class VlanMatchResult(BaseModel):
+    """Find VLAN(s) for an IP from a provided VLAN map."""
+
+    success: bool = Field(description="Whether VLAN map parsed without errors")
+    ip_input: str = Field(description="IP string provided by the caller")
+    ip_normalized: str | None = Field(default=None, description="Normalized IP")
+    match_type: str = Field(description="ONE_MATCH|NO_MATCH|MULTIPLE_MATCHES")
+    matches: list[VlanMatch] = Field(default_factory=list, description="Matching VLANs")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class IpInVlanResult(BaseModel):
+    """Check if an IP belongs to a specific VLAN (1 subnet per VLAN)."""
+
+    success: bool = Field(description="Whether VLAN map parsed without errors")
+    ip_input: str = Field(description="IP string provided by the caller")
+    ip_normalized: str | None = Field(default=None, description="Normalized IP")
+    vlan_id: str = Field(description="VLAN ID")
+    vlan_name: str | None = Field(default=None, description="Optional VLAN name")
+    vlan_cidr: str | None = Field(default=None, description="VLAN subnet CIDR")
+    in_vlan: bool = Field(description="Whether IP belongs to VLAN subnet")
+    reason_code: str = Field(description="Machine-readable reason code")
+    best_guess_vlan: VlanMatch | None = Field(
+        default=None, description="If not in VLAN: best guess VLAN for the IP (unique match)"
+    )
+    next_checks: list[str] = Field(
+        default_factory=list, description="Short, Tier1-friendly next checks"
+    )
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class VlanMapValidationResult(BaseModel):
+    """Validate VLAN map (format + overlaps)."""
+
+    success: bool = Field(description="Whether map has no errors")
+    vlan_count: int = Field(description="Number of valid VLAN entries parsed")
+    errors: list[str] = Field(default_factory=list, description="Validation errors")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings")
+    overlaps: list[OverlapConflict] = Field(default_factory=list, description="Overlaps found")
+    summary: str = Field(description="Human-readable summary for the LLM")
+
+
+class PlanSubnetsRequest(BaseModel):
+    """Single VLAN subnet requirement for plan_subnets."""
+
+    vlan_id: str | int = Field(description="VLAN ID")
+    name: str = Field(description="Friendly VLAN name")
+    needed_hosts: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("needed_hosts", "hosts"),
+        description="Required usable IPv4 hosts (excludes network/broadcast). Alias: hosts",
+    )
+    desired_prefix: int | None = Field(
+        default=None,
+        validation_alias=AliasChoices("desired_prefix", "prefix"),
+        description="Desired IPv4 prefix length. Alias: prefix",
+    )
+    avoid: list[str] | None = Field(
+        default=None, description="CIDRs within parent to avoid allocating from"
+    )
+    contiguous: bool = Field(
+        default=False,
+        description="Preference flag (kept for forward compatibility; not required for 1-subnet-per-VLAN).",
+    )
+
+    @model_validator(mode="after")
+    def _validate_choice(self):
+        if (self.needed_hosts is None and self.desired_prefix is None) or (
+            self.needed_hosts is not None and self.desired_prefix is not None
+        ):
+            raise ValueError("Provide exactly one of needed_hosts or desired_prefix")
+        if self.needed_hosts is not None and self.needed_hosts <= 0:
+            raise ValueError("needed_hosts must be > 0")
+        if self.desired_prefix is not None and not (0 <= self.desired_prefix <= 32):
+            raise ValueError("desired_prefix must be between 0 and 32")
+        return self
+
+
+class PlanSubnetsAllocation(BaseModel):
+    """Per-VLAN allocation output."""
+
+    vlan_id: str = Field(description="VLAN ID")
+    name: str = Field(description="VLAN name")
+    requested_hosts: int | None = Field(default=None, description="Requested usable hosts")
+    requested_prefix: int | None = Field(default=None, description="Requested prefix length")
+    allocated_cidr: str | None = Field(default=None, description="Allocated subnet CIDR")
+    success: bool = Field(description="Whether allocation succeeded")
+    notes: list[str] = Field(default_factory=list, description="Notes/warnings for this VLAN")
+
+
+class RemainingSpace(BaseModel):
+    """Remaining free space after allocation."""
+
+    free_cidrs: list[str] = Field(default_factory=list, description="Remaining free CIDRs")
+
+
+class PlanSubnetsResult(BaseModel):
+    """Allocate VLAN subnets from a parent block."""
+
+    success: bool = Field(description="Whether all allocations succeeded and inputs were valid")
+    parent_cidr: str = Field(description="Parent CIDR")
+    allocations: list[PlanSubnetsAllocation] = Field(
+        default_factory=list, description="Per-VLAN allocations"
+    )
+    remaining: RemainingSpace = Field(description="Remaining free space")
+    warnings: list[str] = Field(default_factory=list, description="Non-fatal warnings")
     summary: str = Field(description="Human-readable summary for the LLM")

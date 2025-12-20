@@ -1,6 +1,6 @@
 [project]
 name = "network-mcp"
-version = "0.1.1"
+version = "0.1.2"
 description = "Network MCP Server for AI Agents - Connectivity testing and pcap analysis"
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -1,0 +1,10 @@
+# Core dependencies
+strands-agents
+strands-agents-tools
+network-mcp
+
+# For Ollama examples
+strands-agents[ollama]
+
+# For incident-demo (waveform visualization)
+pygame

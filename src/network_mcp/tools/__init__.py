@@ -29,10 +29,31 @@ from network_mcp.tools.pcap import (
     get_protocol_hierarchy,
     pcap_summary,
 )
+from network_mcp.tools.planning import (
+    check_overlaps,
+    cidr_info,
+    cidr_summarize,
+    find_vlan_for_ip,
+    ip_in_subnet,
+    ip_in_vlan,
+    plan_subnets,
+    subnet_split,
+    validate_vlan_map,
+)
 
 __all__ = [
     # Diagnostics
     "capabilities",
+    # Planning (pure)
+    "cidr_info",
+    "ip_in_subnet",
+    "subnet_split",
+    "cidr_summarize",
+    "check_overlaps",
+    "validate_vlan_map",
+    "ip_in_vlan",
+    "find_vlan_for_ip",
+    "plan_subnets",
     # External intel
     "rdap_lookup",
     "asn_lookup",

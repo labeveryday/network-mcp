@@ -1,8 +1,9 @@
+
 # Network MCP Server
 
 A Model Context Protocol (MCP) server providing network diagnostic tools for AI agents. Designed to offload heavy network analysis to the server and return structured, actionable data optimized for LLM consumption.
 
-[![PyPI version](https://badge.fury.io/py/network-mcp.svg)](https://badge.fury.io/py/network-mcp)
+[![PyPI version](https://img.shields.io/pypi/v/network-mcp.svg)](https://pypi.org/project/network-mcp/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -62,6 +63,43 @@ Recommended first run (helps agents decide what’s safe/available on this host)
 | Tool | Description |
 |------|-------------|
 | `capabilities` | Report runtime capabilities (installed binaries like `mtr`, active security policy, pcap path guardrails) so agents can plan tool usage |
+
+### Planning (Pure CIDR/VLAN math)
+
+Designed for Tier 1 / Tier 2 NOC workflows. These tools are **pure** (no network calls, deterministic outputs) and safe to use for planning and validation.
+
+| Tool | Description |
+|------|-------------|
+| `cidr_info` | CIDR primitives (IPv4/IPv6): network, usable range, mask/wildcard, counts |
+| `ip_in_subnet` | Check whether an IP is in a subnet and whether it’s a usable host address |
+| `subnet_split` | Split a CIDR into equal-size child subnets (by new prefix or power-of-two count) |
+| `cidr_summarize` | Collapse/aggregate CIDRs into summarized routes (IPv4/IPv6 handled separately) |
+| `check_overlaps` | Find overlaps/containment conflicts between CIDRs |
+| `validate_vlan_map` | Validate a 1-subnet-per-VLAN map and surface overlaps |
+| `find_vlan_for_ip` | Find which VLAN matches an IP from a provided VLAN map (Tier 1 “where does this belong?”) |
+| `ip_in_vlan` | Check if an IP belongs to a VLAN; if not, provide a best-guess VLAN match (when unique) |
+| `plan_subnets` | Allocate VLAN subnets from a parent IPv4 block (deterministic) |
+
+**Input examples**
+
+- VLAN map (both formats accepted):
+
+```json
+{
+  "10": "192.168.10.0/24",
+  "20": { "cidr": "192.168.20.0/24", "name": "Voice" }
+}
+```
+
+- `plan_subnets` requirements (aliases supported: `hosts` and `prefix`):
+
+```json
+[
+  { "vlan_id": 10, "name": "Users", "hosts": 120 },
+  { "vlan_id": 20, "name": "Voice", "hosts": 60 },
+  { "vlan_id": 30, "name": "Printers", "prefix": 26 }
+]
+```
 
 ### External Intel
 
@@ -367,6 +405,25 @@ NETWORK_MCP_PCAP_ALLOWED_PATHS=".,~/Documents,/tmp"
 **Better Reasoning**: LLMs excel at deciding *what* to investigate, not parsing raw output. Structured data leads to better decisions.
 
 **Consistency**: Server-side processing is deterministic. You don't rely on the LLM to correctly interpret traceroute output every time.
+
+## Examples
+
+The `examples/` directory contains working examples using [Strands Agents](https://github.com/strands-agents/strands-agents):
+
+| Example | Description |
+|---------|-------------|
+| `ollama_agent.py` | Interactive chat agent using Ollama (local models) |
+| `incident-demo/` | Self-contained demo: AI diagnoses network outages with voice alerts |
+| `eval_agent.py` | Evaluate how well models use the network tools |
+
+Quick start:
+```bash
+cd examples
+pip install strands-agents strands-agents-tools 'strands-agents[ollama]'
+python ollama_agent.py
+```
+
+See [`examples/README.md`](examples/README.md) for full documentation.
 
 ## Development
 

@@ -17,6 +17,16 @@ class TestServerSetup:
         expected_tools = [
             # Diagnostics
             "capabilities",
+            # Planning (pure)
+            "cidr_info",
+            "ip_in_subnet",
+            "subnet_split",
+            "cidr_summarize",
+            "check_overlaps",
+            "validate_vlan_map",
+            "find_vlan_for_ip",
+            "ip_in_vlan",
+            "plan_subnets",
             # External intel
             "rdap_lookup",
             "asn_lookup",
@@ -54,7 +64,7 @@ class TestServerSetup:
     def test_tool_count(self):
         """Test expected number of tools."""
         tools = list(mcp._tool_manager._tools.keys())
-        assert len(tools) == 25, f"Expected 25 tools, got {len(tools)}: {tools}"
+        assert len(tools) == 34, f"Expected 34 tools, got {len(tools)}: {tools}"
 
 
 class TestToolImports:
