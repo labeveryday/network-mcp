@@ -1,4 +1,3 @@
-
 # Network MCP Server
 
 A Model Context Protocol (MCP) server providing network diagnostic tools for AI agents. Designed to offload heavy network analysis to the server and return structured, actionable data optimized for LLM consumption.
@@ -162,7 +161,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 {
   "mcpServers": {
     "network-tools": {
-      "command": "network-mcp"
+      "command": ["network-mcp"]
     }
   }
 }
@@ -176,7 +175,7 @@ Add to your MCP settings:
 {
   "mcpServers": {
     "network-tools": {
-      "command": "network-mcp"
+      "command": ["network-mcp"]
     }
   }
 }
